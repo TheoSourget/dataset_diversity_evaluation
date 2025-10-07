@@ -4,4 +4,13 @@ python-dotenv
 ruff
 tqdm
 typer
+numpy
+pandas
+scipy
+scikit-image
+matplotlib
+seaborn
+ipykernel
+torch
+torchvision
 -e .
