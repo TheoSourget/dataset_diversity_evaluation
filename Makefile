@@ -6,10 +6,15 @@ PROJECT_NAME = dataset_diversity_evaluation
 PYTHON_VERSION = 3.10
 PYTHON_INTERPRETER = python
 
+#Needed for conda activate in the command
+.ONESHELL:
+SHELL=/bin/bash
+PYTHON_INTERPRETER = python3
+CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activate ; conda activate
+
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
-
 
 ## Install Python dependencies
 .PHONY: requirements
@@ -20,12 +25,12 @@ requirements:
 
 
 
-## Delete all compiled Python files
+## Delete all compiled Python files and processed images
 .PHONY: clean
 clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
-
+	find ./data/processed/ -type d -name morphomnist -exec rm -rv {} +
 
 ## Lint using ruff (use `make format` to do formatting)
 .PHONY: lint
@@ -62,8 +67,12 @@ create_environment:
 ## Make dataset
 .PHONY: data
 data: requirements
-	$(PYTHON_INTERPRETER) src/dataset.py
+	$(PYTHON_INTERPRETER) src/data/dataset.py
 
+## Create visualisations
+.PHONY: visualisations
+visualisations: requirements
+	$(PYTHON_INTERPRETER) src/plots.py
 
 #################################################################################
 # Self Documenting Commands                                                     #
