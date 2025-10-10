@@ -6,7 +6,7 @@ from tqdm import tqdm
 import typer
 
 from src.config import PROCESSED_DATA_DIR,INTERIM_DATA_DIR
-from src.data.morphomnist_pytorch import MorphoMNISTDataset
+from src.data.morphomnist_pytorch import MorphoMNISTDataset,get_thickening_datasets,get_thinning_datasets,get_perturb_dataset
 from src.morphomnist import perturb
 
 import numpy as np
@@ -55,7 +55,7 @@ def inception_score(dataset, batch_size=32, resize=False, splits=1):
 
     # Load inception model
     inception_model = inception_v3(pretrained=True, transform_input=False).type(dtype)
-    inception_model.eval();
+    inception_model.eval()
     up = nn.Upsample(size=(299, 299), mode='bilinear').type(dtype)
     def get_pred(x):
         if resize:
@@ -86,11 +86,12 @@ def inception_score(dataset, batch_size=32, resize=False, splits=1):
 
     return np.mean(split_scores), np.std(split_scores)
 
+def fid(dataset,reference_dataset):
+    pass
+
 def vendi_score(dataset,distance_metric):
     pass
 
-def fid(dataset,reference_dataset):
-    pass
 
 
 @app.command()
@@ -98,38 +99,50 @@ def main(
     # ---- REPLACE DEFAULT PATHS AS APPROPRIATE ----
     input_path: Path = PROCESSED_DATA_DIR / "dataset.csv",
     # -----------------------------------------
-):
-    metrics_csv_path = INTERIM_DATA_DIR / "diversity_metrics.csv"
+):    
 
-    # ---- Creating the datasets ----
-    logger.info("Instanciating the datasets...")
-
-    config_train_datasets = {
-        "plain": None,
-        "thin": [perturb.Thinning(amount=0.5)],
-        "thick": [perturb.Thickening(amount=0.5)]
-    }
-    
-    lst_train_datasets = [MorphoMNISTDataset("train",dataset_name,morpho_transforms=config_train_datasets[dataset_name],as_tensor=True) for dataset_name in config_train_datasets]
-    # -----------------------------------------
-    
-    with open(metrics_csv_path,"w") as metrics_csvfile:
-        metrics_csvfile.write(f"metric_name,{','.join(config_train_datasets.keys())}")
-
-    # ---- Inception score ----
-    logger.info("Computing inception scrores...")
+    # ---- Thinning evolution ----
+    logger.info("Computing diversity metrics for multiple thinning parameter...")
+    lst_train_datasets = get_thinning_datasets()
+    with open(INTERIM_DATA_DIR / "thinning_diversity_metrics.csv","w") as metrics_csvfile:
+        metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
     lst_is = []
     for dataset in tqdm(lst_train_datasets):
         is_dataset = inception_score(dataset,32,True,1)[0]
         lst_is.append(is_dataset)
-    with open(metrics_csv_path,"a+") as metrics_csvfile:
+    with open(INTERIM_DATA_DIR / "thinning_diversity_metrics.csv","a+") as metrics_csvfile:
         metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
-
-    logger.success("Inception scores computed.")
+    logger.success("Done.")
+    # -----------------------------------------
+    
+    # ---- Thickening evolution ----
+    logger.info("Computing diversity metrics for multiple thickening parameter...")
+    lst_train_datasets = get_thickening_datasets()
+    with open(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","w") as metrics_csvfile:
+        metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
+    lst_is = []
+    for dataset in tqdm(lst_train_datasets):
+        is_dataset = inception_score(dataset,32,True,1)[0]
+        lst_is.append(is_dataset)
+    with open(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","a+") as metrics_csvfile:
+        metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
+    logger.success("Done.")
     # -----------------------------------------
 
-    # ---- FID ----
 
+    # ---- Multiple scenarios ----
+    logger.info("Computing diversity metrics for multiple scenarios...")
+    lst_train_datasets = get_perturb_dataset()
+    with open(INTERIM_DATA_DIR / "diversity_metrics.csv","w") as metrics_csvfile:
+        metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
+    lst_is = []
+    for dataset in tqdm(lst_train_datasets):
+        is_dataset = inception_score(dataset,32,True,1)[0]
+        lst_is.append(is_dataset)
+    with open(INTERIM_DATA_DIR / "diversity_metrics.csv","a+") as metrics_csvfile:
+        metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
+    logger.success("Done.")
+    # -----------------------------------------
 
 if __name__ == "__main__":
     app()
