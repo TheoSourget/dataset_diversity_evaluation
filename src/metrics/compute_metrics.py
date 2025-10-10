@@ -35,9 +35,9 @@ def inception_score(dataset, batch_size=32, resize=False, splits=1):
     From https://github.com/sbarratt/inception-score-pytorch
     Computes the inception score of the generated images imgs
 
-    imgs -- Torch dataset of (3xHxW) numpy images normalized in the range [-1, 1]
-    cuda -- whether or not to run on GPU
+    dataset -- Torch dataset of (3xHxW) images normalized in the range [0, 1]
     batch_size -- batch size for feeding into Inception v3
+    resize -- True if images need to be resized to 299x299 to fit the inception model
     splits -- number of splits
     """
     dataset = IgnoreLabelDataset(dataset)
