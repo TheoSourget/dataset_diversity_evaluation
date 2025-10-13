@@ -50,8 +50,8 @@ class MorphoMNISTDataset(Dataset):
         image = np.stack([image]*3, axis=0)
 
         if self.as_tensor:
-            #Return image and label as Tensor 
-            return torch.Tensor(image), torch.Tensor(img_row["label"])
+            #Return image and label as Tensor
+            return torch.Tensor(image), torch.Tensor([img_row["label"]])
         else:
             #Return image as numpy array and label as str
             return image,img_row["label"]
