@@ -11,6 +11,5 @@ scikit-image
 matplotlib
 seaborn
 ipykernel
-torch
-torchvision
+vendi_score[all]
 -e .

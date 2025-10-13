@@ -23,6 +23,7 @@ class MorphoMNISTDataset(Dataset):
         self.labels_csv = pd.read_csv(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/labels.csv")
         self.labels_csv["dataset_name"] = dataset_name
         self.labels_csv["img_path"] = self.labels_csv["img_id"].apply(lambda img_id: PROCESSED_DATA_DIR / f"morphomnist/{split}/{img_id}")
+        self.imgs = [decode_image(path,ImageReadMode.GRAY).detach().cpu().numpy()[0,:,:] for path in self.labels_csv["img_path"]]
         self.dataset_name = dataset_name
         self.as_tensor = as_tensor
         self.morpho_transforms = morpho_transforms
@@ -36,8 +37,9 @@ class MorphoMNISTDataset(Dataset):
         img_row = self.labels_csv.iloc[idx]
         
         #Load the image
-        image = decode_image(img_row["img_path"],ImageReadMode.GRAY)
-        image = image.detach().cpu().numpy()[0,:,:]
+        # image = decode_image(img_row["img_path"],ImageReadMode.GRAY)
+        # image = image.detach().cpu().numpy()[0,:,:]
+        image = self.imgs[idx]
         if self.morpho_transforms:
             #Apply the morpho transformation
             morphology = morpho.ImageMorphology(deepcopy(image), scale=4)
@@ -51,7 +53,7 @@ class MorphoMNISTDataset(Dataset):
 
         if self.as_tensor:
             #Return image and label as Tensor
-            return torch.Tensor(image), torch.Tensor([img_row["label"]])
+            return torch.Tensor(image), torch.tensor(img_row["label"])
         else:
             #Return image as numpy array and label as str
             return image,img_row["label"]

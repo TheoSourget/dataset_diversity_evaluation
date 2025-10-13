@@ -17,6 +17,8 @@ from torch.nn import functional as F
 from torchvision.models.inception import inception_v3
 from scipy.stats import entropy
 from scipy.linalg import sqrtm
+from vendi_score import vendi, image_utils
+torch.manual_seed(1907)
 
 app = typer.Typer()
 
@@ -109,7 +111,7 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
     inception_model.type(dtype)
     inception_model.eval()
     up = nn.Upsample(size=(299, 299), mode='bilinear').type(dtype)
-    def get_pred(x):
+    def get_feature(x):
         if resize:
             x = up(x)
         x = inception_model(x)
@@ -120,13 +122,13 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
     for i, batch in enumerate(dataloader_data, 0):
         batch = batch.type(dtype)
         batchv = Variable(batch)
-        lst_features_dataset.append(get_pred(batchv))
+        lst_features_dataset.append(get_feature(batchv))
 
     lst_preds_reference = []
     for i, batch in enumerate(dataloader_ref, 0):
         batch = batch.type(dtype)
         batchv = Variable(batch)
-        lst_preds_reference.append(get_pred(batchv))
+        lst_preds_reference.append(get_feature(batchv))
 
     feat_data = np.concatenate(lst_features_dataset,axis=0)
     feat_ref = np.concatenate(lst_preds_reference,axis=0)
@@ -137,7 +139,6 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
     mu_ref = np.mean(feat_ref, axis=0)
     sigma_ref = np.cov(feat_ref, rowvar=False)
 
-    print(mu_data,mu_ref)
     mu_diff = np.sum((mu_data - mu_ref)**2.0)
     covmean = sqrtm(sigma_data.dot(sigma_ref))
 
@@ -147,7 +148,14 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
     return mu_diff + np.trace(sigma_data + sigma_ref - 2.0 * covmean)
 
 def vendi_score(dataset,distance_metric):
-    pass
+    imgs = [img for img,label in dataset]
+    pixel_vectors = np.stack([np.array(img).flatten() for img in imgs], 0)
+    n, d = pixel_vectors.shape
+    if n < d:
+        pixel_vs = vendi.score_X(pixel_vectors)
+    else:
+        pixel_vs = vendi.score_dual(pixel_vectors)
+    return pixel_vs
 
 
 
@@ -166,14 +174,18 @@ def main(
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
     lst_is = []
     lst_fid = []
+    lst_vs = []
     for dataset in tqdm(lst_train_datasets):
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
+        vs_dataset = vendi_score(dataset,None)
         lst_is.append(is_dataset)
         lst_fid.append(fid_dataset)
+        lst_vs.append(vs_dataset)
     with open(INTERIM_DATA_DIR / "thinning_diversity_metrics.csv","a+") as metrics_csvfile:
         metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
         metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
+        metrics_csvfile.write(f"\nvs,{','.join([str(vs_d) for vs_d in lst_vs])}")
 
     logger.success("Done.")
     # -----------------------------------------
@@ -185,14 +197,20 @@ def main(
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
     lst_is = []
     lst_fid = []
+    lst_vs = []
+
     for dataset in tqdm(lst_train_datasets):
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
+        vs_dataset = vendi_score(dataset,None)
         lst_is.append(is_dataset)
         lst_fid.append(fid_dataset)
+        lst_vs.append(vs_dataset)
     with open(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","a+") as metrics_csvfile:
         metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
         metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
+        metrics_csvfile.write(f"\nvs,{','.join([str(vs_d) for vs_d in lst_vs])}")
+
     logger.success("Done.")
     # -----------------------------------------
 
@@ -204,14 +222,18 @@ def main(
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
     lst_is = []
     lst_fid = []
+    lst_vs = []
     for dataset in tqdm(lst_train_datasets):
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
+        vs_dataset = vendi_score(dataset,None)
         lst_is.append(is_dataset)
         lst_fid.append(fid_dataset)
+        lst_vs.append(vs_dataset)
     with open(INTERIM_DATA_DIR / "diversity_metrics.csv","a+") as metrics_csvfile:
         metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
         metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
+        metrics_csvfile.write(f"\nvs,{','.join([str(vs_d) for vs_d in lst_vs])}")
     logger.success("Done.")
     # -----------------------------------------
 
