@@ -14,11 +14,17 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
+from torchvision import models
 from torchvision.models.inception import inception_v3
+from torch.utils.data import ConcatDataset
 from scipy.stats import entropy
 from scipy.linalg import sqrtm
 from vendi_score import vendi, image_utils
+
+from copy import deepcopy
+
 torch.manual_seed(1907)
+np.random.seed(1907)
 
 app = typer.Typer()
 
@@ -56,14 +62,14 @@ def inception_score(dataset, batch_size=32, resize=False, splits=1):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
     # Load inception model
-    inception_model = inception_v3(pretrained=True, transform_input=False).type(dtype)
+    inception_model = inception_v3(weights=models.Inception_V3_Weights.DEFAULT, transform_input=False).type(dtype)
     inception_model.eval()
     up = nn.Upsample(size=(299, 299), mode='bilinear').type(dtype)
     def get_pred(x):
         if resize:
             x = up(x)
         x = inception_model(x)
-        return F.softmax(x).data.cpu().numpy()
+        return F.softmax(x,dim=-1).data.cpu().numpy()
 
     # Get predictions
     lst_preds = []
@@ -106,7 +112,7 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
     dataloader_ref = torch.utils.data.DataLoader(reference_dataset, batch_size=batch_size)
 
     # Load inception model and change the last layer to get the features before the last linear layer
-    inception_model = inception_v3(pretrained=True, transform_input=False)
+    inception_model = inception_v3(weights=models.Inception_V3_Weights.DEFAULT, transform_input=False)
     inception_model.fc = torch.nn.Identity()
     inception_model.type(dtype)
     inception_model.eval()
@@ -115,7 +121,7 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
         if resize:
             x = up(x)
         x = inception_model(x)
-        return F.softmax(x).data.cpu().numpy()
+        return x.data.cpu().numpy()
 
     # Get features
     lst_features_dataset = []
@@ -147,17 +153,62 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
 
     return mu_diff + np.trace(sigma_data + sigma_ref - 2.0 * covmean)
 
-def vendi_score(dataset,distance_metric):
-    imgs = [img for img,label in dataset]
-    pixel_vectors = np.stack([np.array(img).flatten() for img in imgs], 0)
-    n, d = pixel_vectors.shape
-    if n < d:
-        pixel_vs = vendi.score_X(pixel_vectors)
+
+def stratified_downsampling_dataset(dataset):
+    #If dataset is a ConcatDataset, need to apply the resampling to all the dataset within it
+    if isinstance(dataset,ConcatDataset):
+        lst_datasets=[]
+        for d in dataset.datasets:
+            d_downsample = deepcopy(d)
+            idxs = d_downsample.labels_csv.groupby('label', group_keys=False)["label"].apply(lambda x: x.sample(frac=0.1)).index
+            d_downsample.labels_csv = d_downsample.labels_csv.iloc[idxs].reset_index(drop=True)
+            d_downsample.imgs = d_downsample.imgs[idxs]
+            lst_datasets.append(d_downsample)
+        d_downsample = ConcatDataset(lst_datasets)
     else:
-        pixel_vs = vendi.score_dual(pixel_vectors)
-    return pixel_vs
+        d_downsample = deepcopy(dataset)
+        idxs = d_downsample.labels_csv.groupby('label', group_keys=False)["label"].apply(lambda x: x.sample(frac=0.1)).index
+        d_downsample.labels_csv = d_downsample.labels_csv.iloc[idxs].reset_index(drop=True)
+        d_downsample.imgs = d_downsample.imgs[idxs]
+    return d_downsample
+
+def vendi_score(dataset,nb_resampling):
+    lst_vendi_scores = []
+    
+    for _ in range(nb_resampling):
+        d_downsample = stratified_downsampling_dataset(dataset)
+        imgs = [img for img,label in d_downsample]
+        if dataset.as_tensor:
+            pixel_vectors = np.stack([np.array(img.detach().cpu().numpy()).flatten() for img in imgs], 0)
+        else:
+            pixel_vectors = np.stack([np.array(img).flatten() for img in imgs], 0)
+        n, d = pixel_vectors.shape
+        if n < d:
+            pixel_vs = vendi.score_X(pixel_vectors)
+        else:
+            pixel_vs = vendi.score_dual(pixel_vectors)
+        lst_vendi_scores.append(pixel_vs)
+    
+    return np.mean(lst_vendi_scores)
 
 
+def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path):
+    with open(res_file_path,"w") as metrics_csvfile:
+        metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
+    lst_is = []
+    lst_fid = []
+    lst_vs = []
+    for dataset in tqdm(lst_train_datasets):
+        is_dataset = inception_score(dataset,32,True,1)[0]
+        fid_dataset = fid(dataset,ref_dataset,32,True,1)
+        vs_dataset = vendi_score(dataset,5)
+        lst_is.append(is_dataset)
+        lst_fid.append(fid_dataset)
+        lst_vs.append(vs_dataset)
+    with open(res_file_path,"a+") as metrics_csvfile:
+        metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
+        metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
+        metrics_csvfile.write(f"\nvs,{','.join([str(vs_d) for vs_d in lst_vs])}")    
 
 @app.command()
 def main(
@@ -170,22 +221,8 @@ def main(
     # ---- Thinning evolution ----
     logger.info("Computing diversity metrics for multiple thinning parameter...")
     lst_train_datasets = get_thinning_datasets()
-    with open(INTERIM_DATA_DIR / "thinning_diversity_metrics.csv","w") as metrics_csvfile:
-        metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
-    lst_is = []
-    lst_fid = []
-    lst_vs = []
-    for dataset in tqdm(lst_train_datasets):
-        is_dataset = inception_score(dataset,32,True,1)[0]
-        fid_dataset = fid(dataset,ref_dataset,32,True,1)
-        vs_dataset = vendi_score(dataset,None)
-        lst_is.append(is_dataset)
-        lst_fid.append(fid_dataset)
-        lst_vs.append(vs_dataset)
-    with open(INTERIM_DATA_DIR / "thinning_diversity_metrics.csv","a+") as metrics_csvfile:
-        metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
-        metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
-        metrics_csvfile.write(f"\nvs,{','.join([str(vs_d) for vs_d in lst_vs])}")
+    res_file_path = INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv"
+    evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
 
     logger.success("Done.")
     # -----------------------------------------
@@ -193,24 +230,8 @@ def main(
     # ---- Thickening evolution ----
     logger.info("Computing diversity metrics for multiple thickening parameter...")
     lst_train_datasets = get_thickening_datasets()
-    with open(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","w") as metrics_csvfile:
-        metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
-    lst_is = []
-    lst_fid = []
-    lst_vs = []
-
-    for dataset in tqdm(lst_train_datasets):
-        is_dataset = inception_score(dataset,32,True,1)[0]
-        fid_dataset = fid(dataset,ref_dataset,32,True,1)
-        vs_dataset = vendi_score(dataset,None)
-        lst_is.append(is_dataset)
-        lst_fid.append(fid_dataset)
-        lst_vs.append(vs_dataset)
-    with open(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","a+") as metrics_csvfile:
-        metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
-        metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
-        metrics_csvfile.write(f"\nvs,{','.join([str(vs_d) for vs_d in lst_vs])}")
-
+    res_file_path = INTERIM_DATA_DIR / "thickening_diversity_metrics_local.csv"
+    evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
     logger.success("Done.")
     # -----------------------------------------
 
@@ -218,22 +239,8 @@ def main(
     # ---- Multiple scenarios ----
     logger.info("Computing diversity metrics for multiple scenarios...")
     lst_train_datasets = get_perturb_dataset()
-    with open(INTERIM_DATA_DIR / "diversity_metrics.csv","w") as metrics_csvfile:
-        metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
-    lst_is = []
-    lst_fid = []
-    lst_vs = []
-    for dataset in tqdm(lst_train_datasets):
-        is_dataset = inception_score(dataset,32,True,1)[0]
-        fid_dataset = fid(dataset,ref_dataset,32,True,1)
-        vs_dataset = vendi_score(dataset,None)
-        lst_is.append(is_dataset)
-        lst_fid.append(fid_dataset)
-        lst_vs.append(vs_dataset)
-    with open(INTERIM_DATA_DIR / "diversity_metrics.csv","a+") as metrics_csvfile:
-        metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
-        metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
-        metrics_csvfile.write(f"\nvs,{','.join([str(vs_d) for vs_d in lst_vs])}")
+    res_file_path = INTERIM_DATA_DIR / "diversity_metrics_local.csv"
+    evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
     logger.success("Done.")
     # -----------------------------------------
 

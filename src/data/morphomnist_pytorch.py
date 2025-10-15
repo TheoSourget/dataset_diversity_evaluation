@@ -20,26 +20,18 @@ class MorphoMNISTDataset(Dataset):
             - morpho_transforms: list, morpho transformation to apply to the images, use None to use the base images
             - as_tensor: bool, Define if the __getitem__ returns the images as a tensor or as a numpy array
         """
+        self.morpho_transforms = morpho_transforms
         self.labels_csv = pd.read_csv(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/labels.csv")
         self.labels_csv["dataset_name"] = dataset_name
         self.labels_csv["img_path"] = self.labels_csv["img_id"].apply(lambda img_id: PROCESSED_DATA_DIR / f"morphomnist/{split}/{img_id}")
-        self.imgs = [decode_image(path,ImageReadMode.GRAY).detach().cpu().numpy()[0,:,:] for path in self.labels_csv["img_path"]]
+        self.imgs = np.array([self.__load_img__(path) for path in self.labels_csv["img_path"]])
         self.dataset_name = dataset_name
         self.as_tensor = as_tensor
-        self.morpho_transforms = morpho_transforms
         
 
-    def __len__(self):
-        return len(self.labels_csv)
-
-    def __getitem__(self, idx):
-        #Get sample info in the csv
-        img_row = self.labels_csv.iloc[idx]
+    def __load_img__(self,path):
+        image = decode_image(path,ImageReadMode.GRAY).detach().cpu().numpy()[0,:,:]
         
-        #Load the image
-        # image = decode_image(img_row["img_path"],ImageReadMode.GRAY)
-        # image = image.detach().cpu().numpy()[0,:,:]
-        image = self.imgs[idx]
         if self.morpho_transforms:
             #Apply the morpho transformation
             morphology = morpho.ImageMorphology(deepcopy(image), scale=4)
@@ -50,6 +42,18 @@ class MorphoMNISTDataset(Dataset):
         #normalize the image and convert to (3,h,w)
         image = image / 255
         image = np.stack([image]*3, axis=0)
+
+        return image
+
+    def __len__(self):
+        return len(self.labels_csv)
+
+    def __getitem__(self, idx):
+        #Get sample info in the csv
+        img_row = self.labels_csv.iloc[idx]
+        
+        #Get a copy of the image so that potential later transformations are not applied to the original image
+        image = deepcopy(self.imgs[idx])
 
         if self.as_tensor:
             #Return image and label as Tensor
@@ -121,6 +125,7 @@ def get_perturb_dataset():
             if (d1.dataset_name == 'plain') and (d2.dataset_name != 'plain'):
                 concat_dataset = ConcatDataset([d1,d2])
                 concat_dataset.dataset_name=f"plain_{d2.dataset_name}"
+                concat_dataset.as_tensor = d1.as_tensor
                 combined_datasets.append(concat_dataset)
     lst_train_datasets = lst_train_datasets+ combined_datasets
     return lst_train_datasets
