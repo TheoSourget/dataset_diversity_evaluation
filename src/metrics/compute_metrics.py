@@ -172,9 +172,26 @@ def stratified_downsampling_dataset(dataset):
         d_downsample.imgs = d_downsample.imgs[idxs]
     return d_downsample
 
+def bootstrap_resampling(dataset):
+    if isinstance(dataset,ConcatDataset):
+        lst_datasets=[]
+        idxs = np.random.randint(0, len(dataset.datasets[0].labels_csv), len(dataset.datasets[0].labels_csv)*len(dataset.datasets))
+        for i,d in enumerate(dataset.datasets):
+            d_bootstrap = deepcopy(d)
+            idxs_d = idxs[i*len(dataset.datasets):(i+1)*len(dataset.datasets)]
+            d_bootstrap.labels_csv = d_bootstrap.labels_csv.iloc[idxs_d].reset_index(drop=True)
+            d_bootstrap.imgs = d_bootstrap.imgs[idxs_d]
+            lst_datasets.append(d_bootstrap)
+        d_bootstrap = ConcatDataset(lst_datasets)
+    else:
+        d_bootstrap = deepcopy(dataset)
+        idxs = np.random.randint(0, len(d_bootstrap.labels_csv), len(d_bootstrap.labels_csv))
+        d_bootstrap.labels_csv = d_bootstrap.labels_csv.iloc[idxs].reset_index(drop=True)
+        d_bootstrap.imgs = d_bootstrap.imgs[idxs]
+    return d_bootstrap
+
 def vendi_score(dataset,nb_resampling):
     lst_vendi_scores = []
-    
     for _ in range(nb_resampling):
         d_downsample = stratified_downsampling_dataset(dataset)
         imgs = [img for img,label in d_downsample]
@@ -191,8 +208,15 @@ def vendi_score(dataset,nb_resampling):
     
     return np.mean(lst_vendi_scores)
 
+def get_confidence_interval(values,alpha=5.0):
+    alpha = 5.0
+    lower_p = alpha / 2.0
+    lower = np.percentile(values, lower_p)
+    upper_p = (100 - alpha) + (alpha / 2.0)
+    upper = np.percentile(values, upper_p)
+    return lower,upper
 
-def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path):
+def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=1000):
     with open(res_file_path,"w") as metrics_csvfile:
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
     lst_is = []
@@ -202,9 +226,27 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path):
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
         vs_dataset = vendi_score(dataset,5)
-        lst_is.append(is_dataset)
-        lst_fid.append(fid_dataset)
-        lst_vs.append(vs_dataset)
+
+        lst_bootstrap_is = []
+        lst_bootstrap_fid = []
+        lst_bootstrap_vs = []
+        for i in range(nb_bootstrap):
+            d_bootstrap = bootstrap_resampling(dataset)
+            is_bootstrap = inception_score(d_bootstrap,32,True,1)[0]
+            fid_bootstrap = fid(d_bootstrap,ref_dataset,32,True,1)
+            vs_bootstrap = vendi_score(d_bootstrap,5)
+            lst_bootstrap_is.append(is_bootstrap)
+            lst_bootstrap_fid.append(fid_bootstrap)
+            lst_bootstrap_vs.append(vs_bootstrap)
+
+        l_is,u_is = get_confidence_interval(lst_bootstrap_is)
+        l_fid,u_fid = get_confidence_interval(lst_bootstrap_fid)
+        l_vs,u_vs = get_confidence_interval(lst_bootstrap_vs)
+
+        lst_is.append(f"{is_dataset}_{l_is}_{u_is}")
+        lst_fid.append(f"{fid_dataset}_{l_fid}_{u_fid}")
+        lst_vs.append(f"{vs_dataset}_{l_vs}_{u_vs}")
+
     with open(res_file_path,"a+") as metrics_csvfile:
         metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
         metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
