@@ -51,12 +51,11 @@ app = typer.Typer()
 def metrics_ranking_correlation_matrix(csv_path):
     #Load the csv with metrics values
     csv_metrics = pd.read_csv(csv_path,index_col="metric_name")
+    csv_metrics = csv_metrics.map(lambda x: float(x.split("_"))[0])
     #For each row compute the ranking
-    rankings = csv_metrics.rank(axis = 1, ascending = [False,True]).astype(int).to_numpy()
-    print(rankings)
+    rankings = csv_metrics.rank(axis = 1, ascending = [False,True,False]).astype(int).to_numpy()
     #Compute the correlation per pair of ranking
     corrs = stats.spearmanr(rankings,axis=1).statistic
-    print(corrs)
     #Display the correlations in a matrix format
     fig = plt.figure()
     sns.heatmap(corrs,annot=True,vmin=-1,vmax=1,xticklabels=csv_metrics.index.values,yticklabels=csv_metrics.index.values)
@@ -86,8 +85,16 @@ def evolution_metrics(csv_path,parameter_name):
     path_figures = FIGURES_DIR / f"evolution/{parameter_name}"
     path_figures.mkdir(parents=True, exist_ok=True)
     for metric_name in csv_metrics.columns:
-        fig = plt.figure()
-        csv_metrics[metric_name].plot()
+        fig, ax = plt.subplots()
+        
+        x=csv_metrics.index
+        metric_values =  csv_metrics[metric_name].apply(lambda x: float(x.split("_")[0]))
+        low_CI_values =  csv_metrics[metric_name].apply(lambda x: float(x.split("_")[1]))
+        up_CI_values =  csv_metrics[metric_name].apply(lambda x: float(x.split("_")[2]))
+
+        ax.plot(x,metric_values,marker="o")
+        ax.fill_between(x, low_CI_values, up_CI_values, alpha=.1)
+
         plt.title(f"Evolution of the {metric_name} when varying the {parameter_name} parameter")
         fig.tight_layout()
         fig.savefig(path_figures / f"{metric_name}.png")
@@ -103,10 +110,10 @@ def main(
 
     # ---- REPLACE THIS WITH YOUR OWN CODE ----
     logger.info("Generating plot from data...")
-    metrics_ranking_correlation_matrix(metrics_csv_path)
-    metrics_values_matrix(metrics_csv_path)
-    evolution_metrics(INTERIM_DATA_DIR / "thinning_diversity_metrics.csv","thinning")
-    evolution_metrics(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","thickening")
+    # metrics_ranking_correlation_matrix(metrics_csv_path)
+    # metrics_values_matrix(metrics_csv_path)
+    evolution_metrics(INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv","thinning")
+    # evolution_metrics(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","thickening")
 
     logger.success("Plot generation complete.")
     # -----------------------------------------

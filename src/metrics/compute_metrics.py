@@ -20,6 +20,7 @@ from torch.utils.data import ConcatDataset
 from scipy.stats import entropy
 from scipy.linalg import sqrtm
 from vendi_score import vendi, image_utils
+from skimage.feature import hog
 
 from copy import deepcopy
 
@@ -190,20 +191,33 @@ def bootstrap_resampling(dataset):
         d_bootstrap.imgs = d_bootstrap.imgs[idxs]
     return d_bootstrap
 
-def vendi_score(dataset,nb_resampling):
+def vs_pixels(dataset):
+    imgs = [img for img,label in dataset]
+    if dataset.as_tensor:
+        pixel_vectors = np.stack([np.array(img.detach().cpu().numpy()).flatten() for img in imgs], 0)
+    else:
+        pixel_vectors = np.stack([np.array(img).flatten() for img in imgs], 0)
+    return pixel_vectors
+
+def vs_hog(dataset):
+    imgs = [img for img,label in dataset]
+    if dataset.as_tensor:
+        hog_vectors = np.stack([np.array(hog(img.detach().cpu().numpy(),channel_axis=0)) for img in imgs], 0)
+    else:
+        hog_vectors = np.stack([np.array(hog(img,channel_axis=0)) for img in imgs], 0)
+    return hog_vectors
+
+def vendi_score(dataset,nb_resampling,feature_function):
     lst_vendi_scores = []
     for _ in range(nb_resampling):
         d_downsample = stratified_downsampling_dataset(dataset)
-        imgs = [img for img,label in d_downsample]
-        if dataset.as_tensor:
-            pixel_vectors = np.stack([np.array(img.detach().cpu().numpy()).flatten() for img in imgs], 0)
-        else:
-            pixel_vectors = np.stack([np.array(img).flatten() for img in imgs], 0)
-        n, d = pixel_vectors.shape
+        feature_vectors = feature_function(d_downsample)
+        
+        n, d = feature_vectors.shape
         if n < d:
-            pixel_vs = vendi.score_X(pixel_vectors)
+            pixel_vs = vendi.score_X(feature_vectors)
         else:
-            pixel_vs = vendi.score_dual(pixel_vectors)
+            pixel_vs = vendi.score_dual(feature_vectors)
         lst_vendi_scores.append(pixel_vs)
     
     return np.mean(lst_vendi_scores)
@@ -216,41 +230,52 @@ def get_confidence_interval(values,alpha=5.0):
     upper = np.percentile(values, upper_p)
     return lower,upper
 
-def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=1000):
+def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=5):
     with open(res_file_path,"w") as metrics_csvfile:
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
     lst_is = []
     lst_fid = []
-    lst_vs = []
+    lst_vs_pix = []
+    lst_vs_hog = []
+
     for dataset in tqdm(lst_train_datasets):
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
-        vs_dataset = vendi_score(dataset,5)
+        vs_pix_dataset = vendi_score(dataset,5,vs_pixels)
+        vs_hog_dataset = vendi_score(dataset,5,vs_hog)
 
         lst_bootstrap_is = []
         lst_bootstrap_fid = []
-        lst_bootstrap_vs = []
+        lst_bootstrap_vs_pix = []
+        lst_bootstrap_vs_hog = []
+
         for i in range(nb_bootstrap):
             d_bootstrap = bootstrap_resampling(dataset)
             is_bootstrap = inception_score(d_bootstrap,32,True,1)[0]
             fid_bootstrap = fid(d_bootstrap,ref_dataset,32,True,1)
-            vs_bootstrap = vendi_score(d_bootstrap,5)
+            vs_pix_bootstrap = vendi_score(d_bootstrap,5,vs_pixels)
+            vs_hog_bootstrap = vendi_score(d_bootstrap,5,vs_hog)
+
             lst_bootstrap_is.append(is_bootstrap)
             lst_bootstrap_fid.append(fid_bootstrap)
-            lst_bootstrap_vs.append(vs_bootstrap)
+            lst_bootstrap_vs_pix.append(vs_pix_bootstrap)
+            lst_bootstrap_vs_hog.append(vs_hog_bootstrap)
 
         l_is,u_is = get_confidence_interval(lst_bootstrap_is)
         l_fid,u_fid = get_confidence_interval(lst_bootstrap_fid)
-        l_vs,u_vs = get_confidence_interval(lst_bootstrap_vs)
+        l_vs_pix,u_vs_pix = get_confidence_interval(lst_bootstrap_vs_pix)
+        l_vs_hog,u_vs_hog = get_confidence_interval(lst_bootstrap_vs_hog)
 
         lst_is.append(f"{is_dataset}_{l_is}_{u_is}")
         lst_fid.append(f"{fid_dataset}_{l_fid}_{u_fid}")
-        lst_vs.append(f"{vs_dataset}_{l_vs}_{u_vs}")
+        lst_vs_pix.append(f"{vs_pix_dataset}_{l_vs_pix}_{u_vs_pix}")
+        lst_vs_hog.append(f"{vs_hog_dataset}_{l_vs_hog}_{u_vs_hog}")
 
     with open(res_file_path,"a+") as metrics_csvfile:
         metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
         metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
-        metrics_csvfile.write(f"\nvs,{','.join([str(vs_d) for vs_d in lst_vs])}")    
+        metrics_csvfile.write(f"\nvs_pixel,{','.join([str(vs_d) for vs_d in lst_vs_pix])}")    
+        metrics_csvfile.write(f"\nvs_hog,{','.join([str(vs_d) for vs_d in lst_vs_hog])}")    
 
 @app.command()
 def main(
