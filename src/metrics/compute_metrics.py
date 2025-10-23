@@ -95,6 +95,23 @@ def inception_score(dataset, batch_size=32, resize=False, splits=1):
 
     return np.mean(split_scores), np.std(split_scores)
 
+def get_inception_feature(x,resize=False):
+    # Set up dtype
+    if torch.cuda.is_available():
+        dtype = torch.cuda.FloatTensor
+    else:
+        dtype = torch.FloatTensor
+    # Load inception model and change the last layer to get the features before the last linear layer
+    inception_model = inception_v3(weights=models.Inception_V3_Weights.DEFAULT, transform_input=False)
+    inception_model.fc = torch.nn.Identity()
+    inception_model.type(dtype)
+    inception_model.eval()
+    up = nn.Upsample(size=(299, 299), mode='bilinear').type(dtype)
+    if resize:
+        x = up(x)
+    x = inception_model(x)
+    return x.data.cpu().numpy()
+
 def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
     
     dataset = IgnoreLabelDataset(dataset)
@@ -112,34 +129,23 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
     dataloader_data = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
     dataloader_ref = torch.utils.data.DataLoader(reference_dataset, batch_size=batch_size)
 
-    # Load inception model and change the last layer to get the features before the last linear layer
-    inception_model = inception_v3(weights=models.Inception_V3_Weights.DEFAULT, transform_input=False)
-    inception_model.fc = torch.nn.Identity()
-    inception_model.type(dtype)
-    inception_model.eval()
-    up = nn.Upsample(size=(299, 299), mode='bilinear').type(dtype)
-    def get_feature(x):
-        if resize:
-            x = up(x)
-        x = inception_model(x)
-        return x.data.cpu().numpy()
-
     # Get features
     lst_features_dataset = []
     for i, batch in enumerate(dataloader_data, 0):
         batch = batch.type(dtype)
         batchv = Variable(batch)
-        lst_features_dataset.append(get_feature(batchv))
+        lst_features_dataset.append(get_inception_feature(batchv,resize=resize))
 
     lst_preds_reference = []
     for i, batch in enumerate(dataloader_ref, 0):
         batch = batch.type(dtype)
         batchv = Variable(batch)
-        lst_preds_reference.append(get_feature(batchv))
+        lst_preds_reference.append(get_inception_feature(batchv,resize=resize))
 
     feat_data = np.concatenate(lst_features_dataset,axis=0)
     feat_ref = np.concatenate(lst_preds_reference,axis=0)
 
+    #Compute the fid 
     mu_data = np.mean(feat_data, axis=0)
     sigma_data = np.cov(feat_data, rowvar=False)
     
@@ -156,6 +162,9 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
 
 
 def stratified_downsampling_dataset(dataset):
+    """
+    Downsample the provided dataset in a stratified way, keeping 10% of the data for each class
+    """
     #If dataset is a ConcatDataset, need to apply the resampling to all the dataset within it
     if isinstance(dataset,ConcatDataset):
         lst_datasets=[]
@@ -166,6 +175,7 @@ def stratified_downsampling_dataset(dataset):
             d_downsample.imgs = d_downsample.imgs[idxs]
             lst_datasets.append(d_downsample)
         d_downsample = ConcatDataset(lst_datasets)
+        d_downsample.as_tensor = dataset.datasets[0].as_tensor
     else:
         d_downsample = deepcopy(dataset)
         idxs = d_downsample.labels_csv.groupby('label', group_keys=False)["label"].apply(lambda x: x.sample(frac=0.1)).index
@@ -174,6 +184,9 @@ def stratified_downsampling_dataset(dataset):
     return d_downsample
 
 def bootstrap_resampling(dataset):
+    """
+    Resample a dataset using the bootstrap method (selection of the same number of sample as in the original dataset but with replacement)
+    """
     if isinstance(dataset,ConcatDataset):
         lst_datasets=[]
         idxs = np.random.randint(0, len(dataset.datasets[0].labels_csv), len(dataset.datasets[0].labels_csv)*len(dataset.datasets))
@@ -184,6 +197,7 @@ def bootstrap_resampling(dataset):
             d_bootstrap.imgs = d_bootstrap.imgs[idxs_d]
             lst_datasets.append(d_bootstrap)
         d_bootstrap = ConcatDataset(lst_datasets)
+        d_bootstrap.as_tensor = dataset.datasets[0].as_tensor
     else:
         d_bootstrap = deepcopy(dataset)
         idxs = np.random.randint(0, len(d_bootstrap.labels_csv), len(d_bootstrap.labels_csv))
@@ -192,6 +206,9 @@ def bootstrap_resampling(dataset):
     return d_bootstrap
 
 def vs_pixels(dataset):
+    """
+    Generate features for a dataset using the pixel values. To be used in the Vendi Score.
+    """
     imgs = [img for img,label in dataset]
     if dataset.as_tensor:
         pixel_vectors = np.stack([np.array(img.detach().cpu().numpy()).flatten() for img in imgs], 0)
@@ -200,6 +217,9 @@ def vs_pixels(dataset):
     return pixel_vectors
 
 def vs_hog(dataset):
+    """
+    Generate features for a dataset using the histogram of oriented grandients. To be used in the Vendi Score.
+    """
     imgs = [img for img,label in dataset]
     if dataset.as_tensor:
         hog_vectors = np.stack([np.array(hog(img.detach().cpu().numpy(),channel_axis=0)) for img in imgs], 0)
@@ -207,12 +227,42 @@ def vs_hog(dataset):
         hog_vectors = np.stack([np.array(hog(img,channel_axis=0)) for img in imgs], 0)
     return hog_vectors
 
+def vs_inception_features(dataset):
+    """
+    Generate features for a dataset using the features of a pretrained InceptionV3 model. To be used in the Vendi Score.
+    """
+    dataset = IgnoreLabelDataset(dataset)
+    # Set up dtype
+    if torch.cuda.is_available():
+        dtype = torch.cuda.FloatTensor
+    else:
+        dtype = torch.FloatTensor
+
+    # Set up dataloader
+    dataloader_data = torch.utils.data.DataLoader(dataset, batch_size=32)
+
+    # Get features
+    lst_features_dataset = []
+    for i, batch in enumerate(dataloader_data, 0):
+        batch = batch.type(dtype)
+        batchv = Variable(batch)
+        lst_features_dataset.append(get_inception_feature(batchv,resize=True))
+    inception_features_vectors = np.concatenate(lst_features_dataset,axis=0)
+    return inception_features_vectors
+
 def vendi_score(dataset,nb_resampling,feature_function):
+    """
+    Compute the vendi score of a dataset using the cosine similarity features generated by the feature_function.
+    For computational reason, the function will downsample nb_resampling times the original dataset to keep 10% of the data and return the mean value.
+    @param:
+        - dataset: Pytorch dataset to be evaluated
+        - nb_resampling: number of time the downsampling will be performed
+        - feature_function: function to generate the features used in the computation of the cosine similarity
+    """
     lst_vendi_scores = []
     for _ in range(nb_resampling):
         d_downsample = stratified_downsampling_dataset(dataset)
         feature_vectors = feature_function(d_downsample)
-        
         n, d = feature_vectors.shape
         if n < d:
             pixel_vs = vendi.score_X(feature_vectors)
@@ -230,7 +280,7 @@ def get_confidence_interval(values,alpha=5.0):
     upper = np.percentile(values, upper_p)
     return lower,upper
 
-def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=5):
+def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=2):
     with open(res_file_path,"w") as metrics_csvfile:
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
     lst_is = []
@@ -241,8 +291,8 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
     for dataset in tqdm(lst_train_datasets):
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
-        vs_pix_dataset = vendi_score(dataset,5,vs_pixels)
-        vs_hog_dataset = vendi_score(dataset,5,vs_hog)
+        vs_pix_dataset = vendi_score(dataset,1,vs_pixels)
+        vs_hog_dataset = vendi_score(dataset,1,vs_hog)
 
         lst_bootstrap_is = []
         lst_bootstrap_fid = []
