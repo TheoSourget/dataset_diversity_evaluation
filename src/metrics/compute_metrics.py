@@ -293,8 +293,6 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
     lst_vs_inception = []
 
     for dataset in tqdm(lst_train_datasets):
-        if not isinstance(dataset,ConcatDataset):
-            continue
         #Compute each metric on the dataset
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
@@ -353,22 +351,22 @@ def main(
 ):    
     ref_dataset = get_test_dataset()
 
-    # # ---- Thinning evolution ----
-    # logger.info("Computing diversity metrics for multiple thinning parameter...")
-    # lst_train_datasets = get_thinning_datasets()
-    # res_file_path = INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv"
-    # evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
+    # ---- Thinning evolution ----
+    logger.info("Computing diversity metrics for multiple thinning parameter...")
+    lst_train_datasets = get_thinning_datasets()
+    res_file_path = INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv"
+    evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
 
-    # logger.success("Done.")
-    # # -----------------------------------------
+    logger.success("Done.")
+    # -----------------------------------------
     
-    # # ---- Thickening evolution ----
-    # logger.info("Computing diversity metrics for multiple thickening parameter...")
-    # lst_train_datasets = get_thickening_datasets()
-    # res_file_path = INTERIM_DATA_DIR / "thickening_diversity_metrics_local.csv"
-    # evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
-    # logger.success("Done.")
-    # # -----------------------------------------
+    # ---- Thickening evolution ----
+    logger.info("Computing diversity metrics for multiple thickening parameter...")
+    lst_train_datasets = get_thickening_datasets()
+    res_file_path = INTERIM_DATA_DIR / "thickening_diversity_metrics_local.csv"
+    evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
+    logger.success("Done.")
+    # -----------------------------------------
 
 
     # ---- Multiple scenarios ----
