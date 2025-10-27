@@ -53,7 +53,7 @@ def metrics_ranking_correlation_matrix(csv_path):
     csv_metrics = pd.read_csv(csv_path,index_col="metric_name")
     csv_metrics = csv_metrics.map(lambda x: float(x.split("_"))[0])
     #For each row compute the ranking
-    rankings = csv_metrics.rank(axis = 1, ascending = [False,True,False]).astype(int).to_numpy()
+    rankings = csv_metrics.rank(axis = 1, ascending = [False,True,False,False,False]).astype(int).to_numpy()
     #Compute the correlation per pair of ranking
     corrs = stats.spearmanr(rankings,axis=1).statistic
     #Display the correlations in a matrix format
@@ -80,6 +80,11 @@ def metrics_values_matrix(csv_path):
     
 
 def evolution_metrics(csv_path,parameter_name):
+    metrics_label = {
+        "vs":"Vendi Score +",
+        "inception_score":"Inception score +",
+        "fid":"Fréchet Inception distance -"
+    }
     #Load the csv with metrics values
     csv_metrics = pd.read_csv(csv_path,index_col="metric_name").T
     path_figures = FIGURES_DIR / f"evolution/{parameter_name}"
@@ -87,7 +92,8 @@ def evolution_metrics(csv_path,parameter_name):
     for metric_name in csv_metrics.columns:
         fig, ax = plt.subplots()
         
-        x=csv_metrics.index
+        x=[int(param.split("_")[1]) for param in csv_metrics.index]
+
         metric_values =  csv_metrics[metric_name].apply(lambda x: float(x.split("_")[0]))
         low_CI_values =  csv_metrics[metric_name].apply(lambda x: float(x.split("_")[1]))
         up_CI_values =  csv_metrics[metric_name].apply(lambda x: float(x.split("_")[2]))
@@ -95,6 +101,10 @@ def evolution_metrics(csv_path,parameter_name):
         ax.plot(x,metric_values,marker="o")
         ax.fill_between(x, low_CI_values, up_CI_values, alpha=.1)
 
+        plt.xlabel(f"{parameter_name} parameter")
+        plt.ylabel(metrics_label.get(metric_name,metric_name))
+
+        plt.xticks(x)
         plt.title(f"Evolution of the {metric_name} when varying the {parameter_name} parameter")
         fig.tight_layout()
         fig.savefig(path_figures / f"{metric_name}.png")
@@ -110,10 +120,10 @@ def main(
 
     # ---- REPLACE THIS WITH YOUR OWN CODE ----
     logger.info("Generating plot from data...")
-    # metrics_ranking_correlation_matrix(metrics_csv_path)
-    # metrics_values_matrix(metrics_csv_path)
-    evolution_metrics(INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv","thinning")
-    # evolution_metrics(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","thickening")
+    metrics_ranking_correlation_matrix(metrics_csv_path)
+    metrics_values_matrix(metrics_csv_path)
+    evolution_metrics(INTERIM_DATA_DIR / "thinning_diversity_metrics.csv","thinning")
+    evolution_metrics(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","thickening")
 
     logger.success("Plot generation complete.")
     # -----------------------------------------
