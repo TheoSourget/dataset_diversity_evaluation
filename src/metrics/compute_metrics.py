@@ -192,7 +192,7 @@ def bootstrap_resampling(dataset):
         idxs = np.random.randint(0, len(dataset.datasets[0].labels_csv), len(dataset.datasets[0].labels_csv)*len(dataset.datasets))
         for i,d in enumerate(dataset.datasets):
             d_bootstrap = deepcopy(d)
-            idxs_d = idxs[i*len(dataset.datasets):(i+1)*len(dataset.datasets)]
+            idxs_d = idxs[i*len(dataset.datasets[0].labels_csv):(i+1)*len(dataset.datasets[0].labels_csv)]
             d_bootstrap.labels_csv = d_bootstrap.labels_csv.iloc[idxs_d].reset_index(drop=True)
             d_bootstrap.imgs = d_bootstrap.imgs[idxs_d]
             lst_datasets.append(d_bootstrap)
@@ -281,23 +281,33 @@ def get_confidence_interval(values,alpha=5.0):
     return lower,upper
 
 def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=2):
+    #Create csv file with header
     with open(res_file_path,"w") as metrics_csvfile:
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
+
+    #Lists of metrics values and confidence interval each value will be MetricOnFullDataset_LowerCI_UpperCI
     lst_is = []
     lst_fid = []
     lst_vs_pix = []
     lst_vs_hog = []
+    lst_vs_inception = []
 
     for dataset in tqdm(lst_train_datasets):
+        if not isinstance(dataset,ConcatDataset):
+            continue
+        #Compute each metric on the dataset
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
         vs_pix_dataset = vendi_score(dataset,1,vs_pixels)
         vs_hog_dataset = vendi_score(dataset,1,vs_hog)
+        vs_inception_dataset = vendi_score(dataset,1,vs_inception_features)
 
+        #List of metrics value on bootstrap version of the dataset
         lst_bootstrap_is = []
         lst_bootstrap_fid = []
         lst_bootstrap_vs_pix = []
         lst_bootstrap_vs_hog = []
+        lst_bootstrap_vs_inception = []
 
         for i in range(nb_bootstrap):
             d_bootstrap = bootstrap_resampling(dataset)
@@ -305,27 +315,35 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
             fid_bootstrap = fid(d_bootstrap,ref_dataset,32,True,1)
             vs_pix_bootstrap = vendi_score(d_bootstrap,5,vs_pixels)
             vs_hog_bootstrap = vendi_score(d_bootstrap,5,vs_hog)
+            vs_inception_bootstrap = vendi_score(d_bootstrap,5,vs_inception_features)
 
             lst_bootstrap_is.append(is_bootstrap)
             lst_bootstrap_fid.append(fid_bootstrap)
             lst_bootstrap_vs_pix.append(vs_pix_bootstrap)
             lst_bootstrap_vs_hog.append(vs_hog_bootstrap)
+            lst_bootstrap_vs_inception.append(vs_inception_bootstrap)
 
+        #Compute the 95% confidence interval from the boostrap values
         l_is,u_is = get_confidence_interval(lst_bootstrap_is)
         l_fid,u_fid = get_confidence_interval(lst_bootstrap_fid)
         l_vs_pix,u_vs_pix = get_confidence_interval(lst_bootstrap_vs_pix)
         l_vs_hog,u_vs_hog = get_confidence_interval(lst_bootstrap_vs_hog)
+        l_vs_inception,u_vs_inception = get_confidence_interval(lst_bootstrap_vs_inception)
 
+        #Add the metric and CI
         lst_is.append(f"{is_dataset}_{l_is}_{u_is}")
         lst_fid.append(f"{fid_dataset}_{l_fid}_{u_fid}")
         lst_vs_pix.append(f"{vs_pix_dataset}_{l_vs_pix}_{u_vs_pix}")
         lst_vs_hog.append(f"{vs_hog_dataset}_{l_vs_hog}_{u_vs_hog}")
-
+        lst_vs_inception.append(f"{vs_inception_dataset}_{l_vs_inception}_{u_vs_inception}")
+    
+    #Write the result in the csv file
     with open(res_file_path,"a+") as metrics_csvfile:
         metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
         metrics_csvfile.write(f"\nfid,{','.join([str(fid_d) for fid_d in lst_fid])}")
         metrics_csvfile.write(f"\nvs_pixel,{','.join([str(vs_d) for vs_d in lst_vs_pix])}")    
         metrics_csvfile.write(f"\nvs_hog,{','.join([str(vs_d) for vs_d in lst_vs_hog])}")    
+        metrics_csvfile.write(f"\nvs_inception,{','.join([str(vs_d) for vs_d in lst_vs_inception])}")    
 
 @app.command()
 def main(
@@ -335,22 +353,22 @@ def main(
 ):    
     ref_dataset = get_test_dataset()
 
-    # ---- Thinning evolution ----
-    logger.info("Computing diversity metrics for multiple thinning parameter...")
-    lst_train_datasets = get_thinning_datasets()
-    res_file_path = INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv"
-    evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
+    # # ---- Thinning evolution ----
+    # logger.info("Computing diversity metrics for multiple thinning parameter...")
+    # lst_train_datasets = get_thinning_datasets()
+    # res_file_path = INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv"
+    # evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
 
-    logger.success("Done.")
-    # -----------------------------------------
+    # logger.success("Done.")
+    # # -----------------------------------------
     
-    # ---- Thickening evolution ----
-    logger.info("Computing diversity metrics for multiple thickening parameter...")
-    lst_train_datasets = get_thickening_datasets()
-    res_file_path = INTERIM_DATA_DIR / "thickening_diversity_metrics_local.csv"
-    evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
-    logger.success("Done.")
-    # -----------------------------------------
+    # # ---- Thickening evolution ----
+    # logger.info("Computing diversity metrics for multiple thickening parameter...")
+    # lst_train_datasets = get_thickening_datasets()
+    # res_file_path = INTERIM_DATA_DIR / "thickening_diversity_metrics_local.csv"
+    # evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
+    # logger.success("Done.")
+    # # -----------------------------------------
 
 
     # ---- Multiple scenarios ----
