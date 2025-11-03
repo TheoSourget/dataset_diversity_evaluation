@@ -57,10 +57,10 @@ class MorphoMNISTDataset(Dataset):
 
         if self.as_tensor:
             #Return image and label as Tensor
-            return torch.Tensor(image), torch.tensor(img_row["label"])
+            return torch.Tensor(image), torch.tensor(img_row["label"]),img_row["img_id"],self.dataset_name
         else:
             #Return image as numpy array and label as str
-            return image,img_row["label"]
+            return image,img_row["label"],img_row["img_id"],self.dataset_name
 
 
 def get_thinning_datasets():
@@ -131,4 +131,15 @@ def get_perturb_dataset():
     return lst_train_datasets
 
 def get_test_dataset():
-    return MorphoMNISTDataset("test","test",morpho_transforms=None,as_tensor=True)
+    config_datasets = {
+        "plain": None,
+        "thin": [perturb.Thinning(amount=0.5)],
+        "thick": [perturb.Thickening(amount=0.5)],
+        "swelling": [perturb.Swelling(strength=3, radius=7,random_seed=1907)],
+        "fracture": [perturb.Fracture(num_frac=3,random_seed=1907)],
+    }
+    lst_test_datasets = [MorphoMNISTDataset("test",dataset_name,morpho_transforms=config_datasets[dataset_name],as_tensor=True) for dataset_name in config_datasets]
+    concat_dataset = ConcatDataset(lst_test_datasets)
+    concat_dataset.dataset_name=f"test"
+    concat_dataset.as_tensor = True
+    return concat_dataset
