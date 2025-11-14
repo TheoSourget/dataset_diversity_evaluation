@@ -8,7 +8,8 @@ import typer
 from src.config import PROCESSED_DATA_DIR,INTERIM_DATA_DIR
 from src.data.morphomnist_pytorch import MorphoMNISTDataset,get_thickening_datasets,get_thinning_datasets,get_perturb_dataset,get_test_dataset
 from src.morphomnist import perturb
-
+from src.modeling.utils import stratified_downsampling_dataset, bootstrap_resampling
+import pandas as pd
 import numpy as np
 import torch
 from torch import nn
@@ -19,8 +20,10 @@ from torchvision.models.inception import inception_v3
 from torch.utils.data import ConcatDataset
 from scipy.stats import entropy
 from scipy.linalg import sqrtm
-from vendi_score import vendi, image_utils
+from vendi_score import vendi
 from skimage.feature import hog
+
+from rouge_score import rouge_scorer
 
 from copy import deepcopy
 
@@ -74,13 +77,15 @@ def inception_score(dataset, batch_size=32, resize=False, splits=1):
 
     # Get predictions
     lst_preds = []
-
-    for i, batch in enumerate(dataloader, 0):
-        batch = batch.type(dtype)
-        batchv = Variable(batch)
-        lst_preds.append(get_pred(batchv))
-    preds = np.concatenate(lst_preds,axis=0)
-
+    if "inception_preds" not in dataset.orig.labels_csv.columns:
+        for i, batch in enumerate(dataloader, 0):
+            batch = batch.type(dtype)
+            batchv = Variable(batch)
+            lst_preds.append(get_pred(batchv))
+        preds = np.concatenate(lst_preds,axis=0)
+        dataset.orig.labels_csv["inception_preds"]=pd.Series(preds.tolist())
+    else:
+        preds = np.stack(dataset.orig.labels_csv["inception_preds"].values)
     # Now compute the mean kl-div
     split_scores = []
 
@@ -112,7 +117,7 @@ def get_inception_feature(x,resize=False):
     x = inception_model(x)
     return x.data.cpu().numpy()
 
-def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
+def fid(dataset,reference_dataset,batch_size=32, resize=False,splits=1,load_ref_stats=False):
     
     dataset = IgnoreLabelDataset(dataset)
     reference_dataset = IgnoreLabelDataset(reference_dataset)
@@ -129,29 +134,38 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
     dataloader_data = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
     dataloader_ref = torch.utils.data.DataLoader(reference_dataset, batch_size=batch_size)
 
-    # Get features
-    lst_features_dataset = []
-    for i, batch in enumerate(dataloader_data, 0):
-        batch = batch.type(dtype)
-        batchv = Variable(batch)
-        lst_features_dataset.append(get_inception_feature(batchv,resize=resize))
-
-    lst_preds_reference = []
-    for i, batch in enumerate(dataloader_ref, 0):
-        batch = batch.type(dtype)
-        batchv = Variable(batch)
-        lst_preds_reference.append(get_inception_feature(batchv,resize=resize))
-
-    feat_data = np.concatenate(lst_features_dataset,axis=0)
-    feat_ref = np.concatenate(lst_preds_reference,axis=0)
-
-    #Compute the fid 
+    # Compute inception features if not already in the dataset
+    if "inception_features" not in dataset.orig.labels_csv.columns:
+        lst_features_dataset = []
+        for i, batch in enumerate(dataloader_data, 0):
+            batch = batch.type(dtype)
+            batchv = Variable(batch)
+            lst_features_dataset.append(get_inception_feature(batchv,resize=resize))
+        feat_data = np.concatenate(lst_features_dataset,axis=0)
+        dataset.orig.labels_csv["inception_features"]=pd.Series(feat_data.tolist())
+    else:
+        feat_data = np.stack(dataset.orig.labels_csv["inception_features"].values)
     mu_data = np.mean(feat_data, axis=0)
     sigma_data = np.cov(feat_data, rowvar=False)
-    
-    mu_ref = np.mean(feat_ref, axis=0)
-    sigma_ref = np.cov(feat_ref, rowvar=False)
 
+    if not load_ref_stats:
+        lst_preds_reference = []
+        for i, batch in enumerate(dataloader_ref, 0):
+            batch = batch.type(dtype)
+            batchv = Variable(batch)
+            lst_preds_reference.append(get_inception_feature(batchv,resize=resize))
+        feat_ref = np.concatenate(lst_preds_reference,axis=0)
+        mu_ref = np.mean(feat_ref, axis=0)
+        sigma_ref = np.cov(feat_ref, rowvar=False)
+        with open(INTERIM_DATA_DIR/'fid_ref.npy', 'wb') as f:
+            np.save(f,mu_ref)
+            np.save(f,sigma_ref)
+    else:
+        with open(INTERIM_DATA_DIR/'fid_ref.npy', 'rb') as f:
+            mu_ref = np.load(f)
+            sigma_ref = np.load(f)
+
+    #Compute the fid 
     mu_diff = np.sum((mu_data - mu_ref)**2.0)
     covmean = sqrtm(sigma_data.dot(sigma_ref))
 
@@ -160,56 +174,11 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False, splits=1):
 
     return mu_diff + np.trace(sigma_data + sigma_ref - 2.0 * covmean)
 
-
-def stratified_downsampling_dataset(dataset):
-    """
-    Downsample the provided dataset in a stratified way, keeping 10% of the data for each class
-    """
-    #If dataset is a ConcatDataset, need to apply the resampling to all the dataset within it
-    if isinstance(dataset,ConcatDataset):
-        lst_datasets=[]
-        for d in dataset.datasets:
-            d_downsample = deepcopy(d)
-            idxs = d_downsample.labels_csv.groupby('label', group_keys=False)["label"].apply(lambda x: x.sample(frac=0.1)).index
-            d_downsample.labels_csv = d_downsample.labels_csv.iloc[idxs].reset_index(drop=True)
-            d_downsample.imgs = d_downsample.imgs[idxs]
-            lst_datasets.append(d_downsample)
-        d_downsample = ConcatDataset(lst_datasets)
-        d_downsample.as_tensor = dataset.datasets[0].as_tensor
-    else:
-        d_downsample = deepcopy(dataset)
-        idxs = d_downsample.labels_csv.groupby('label', group_keys=False)["label"].apply(lambda x: x.sample(frac=0.1)).index
-        d_downsample.labels_csv = d_downsample.labels_csv.iloc[idxs].reset_index(drop=True)
-        d_downsample.imgs = d_downsample.imgs[idxs]
-    return d_downsample
-
-def bootstrap_resampling(dataset):
-    """
-    Resample a dataset using the bootstrap method (selection of the same number of sample as in the original dataset but with replacement)
-    """
-    if isinstance(dataset,ConcatDataset):
-        lst_datasets=[]
-        idxs = np.random.randint(0, len(dataset.datasets[0].labels_csv), len(dataset.datasets[0].labels_csv)*len(dataset.datasets))
-        for i,d in enumerate(dataset.datasets):
-            d_bootstrap = deepcopy(d)
-            idxs_d = idxs[i*len(dataset.datasets[0].labels_csv):(i+1)*len(dataset.datasets[0].labels_csv)]
-            d_bootstrap.labels_csv = d_bootstrap.labels_csv.iloc[idxs_d].reset_index(drop=True)
-            d_bootstrap.imgs = d_bootstrap.imgs[idxs_d]
-            lst_datasets.append(d_bootstrap)
-        d_bootstrap = ConcatDataset(lst_datasets)
-        d_bootstrap.as_tensor = dataset.datasets[0].as_tensor
-    else:
-        d_bootstrap = deepcopy(dataset)
-        idxs = np.random.randint(0, len(d_bootstrap.labels_csv), len(d_bootstrap.labels_csv))
-        d_bootstrap.labels_csv = d_bootstrap.labels_csv.iloc[idxs].reset_index(drop=True)
-        d_bootstrap.imgs = d_bootstrap.imgs[idxs]
-    return d_bootstrap
-
 def vs_pixels(dataset):
     """
     Generate features for a dataset using the pixel values. To be used in the Vendi Score.
     """
-    imgs = [img for img,label in dataset]
+    imgs = [item[0] for item in dataset]
     if dataset.as_tensor:
         pixel_vectors = np.stack([np.array(img.detach().cpu().numpy()).flatten() for img in imgs], 0)
     else:
@@ -220,7 +189,7 @@ def vs_hog(dataset):
     """
     Generate features for a dataset using the histogram of oriented grandients. To be used in the Vendi Score.
     """
-    imgs = [img for img,label in dataset]
+    imgs = [item[0] for item in dataset]
     if dataset.as_tensor:
         hog_vectors = np.stack([np.array(hog(img.detach().cpu().numpy(),channel_axis=0)) for img in imgs], 0)
     else:
@@ -242,12 +211,16 @@ def vs_inception_features(dataset):
     dataloader_data = torch.utils.data.DataLoader(dataset, batch_size=32)
 
     # Get features
-    lst_features_dataset = []
-    for i, batch in enumerate(dataloader_data, 0):
-        batch = batch.type(dtype)
-        batchv = Variable(batch)
-        lst_features_dataset.append(get_inception_feature(batchv,resize=True))
-    inception_features_vectors = np.concatenate(lst_features_dataset,axis=0)
+    if "inception_features" not in dataset.orig.labels_csv.columns:
+        lst_features_dataset = []
+        for i, batch in enumerate(dataloader_data, 0):
+            batch = batch.type(dtype)
+            batchv = Variable(batch)
+            lst_features_dataset.append(get_inception_feature(batchv,resize=True))
+        inception_features_vectors = np.concatenate(lst_features_dataset,axis=0)
+    else:
+        inception_features_vectors = np.stack(dataset.orig.labels_csv["inception_features"].values)
+
     return inception_features_vectors
 
 def vendi_score(dataset,nb_resampling,feature_function):
@@ -272,6 +245,18 @@ def vendi_score(dataset,nb_resampling,feature_function):
     
     return np.mean(lst_vendi_scores)
 
+
+def rougeL(dataset):
+    scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
+    rouge_scores = []
+    texts = [item[1] for item in dataset]
+    for i in range(len(texts)):
+        t1 = texts[i]
+        for j in range(i+1,len(texts)):
+            t2 = texts[j]
+            rouge_scores.append(scorer.score(t1,t2).fmeasure) 
+    return np.mean(rouge_scores)
+
 def get_confidence_interval(values,alpha=5.0):
     alpha = 5.0
     lower_p = alpha / 2.0
@@ -280,7 +265,7 @@ def get_confidence_interval(values,alpha=5.0):
     upper = np.percentile(values, upper_p)
     return lower,upper
 
-def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=2):
+def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=100):
     #Create csv file with header
     with open(res_file_path,"w") as metrics_csvfile:
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
@@ -294,6 +279,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
 
     for dataset in tqdm(lst_train_datasets):
         #Compute each metric on the dataset
+        logger.info("compute on full")
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
         vs_pix_dataset = vendi_score(dataset,1,vs_pixels)
@@ -308,9 +294,10 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         lst_bootstrap_vs_inception = []
 
         for i in range(nb_bootstrap):
+            logger.info(f"compute on bootstrap {i}")
             d_bootstrap = bootstrap_resampling(dataset)
             is_bootstrap = inception_score(d_bootstrap,32,True,1)[0]
-            fid_bootstrap = fid(d_bootstrap,ref_dataset,32,True,1)
+            fid_bootstrap = fid(d_bootstrap,ref_dataset,32,True,1,True)
             vs_pix_bootstrap = vendi_score(d_bootstrap,5,vs_pixels)
             vs_hog_bootstrap = vendi_score(d_bootstrap,5,vs_hog)
             vs_inception_bootstrap = vendi_score(d_bootstrap,5,vs_inception_features)
@@ -344,29 +331,25 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         metrics_csvfile.write(f"\nvs_inception,{','.join([str(vs_d) for vs_d in lst_vs_inception])}")    
 
 @app.command()
-def main(
-    # ---- REPLACE DEFAULT PATHS AS APPROPRIATE ----
-    input_path: Path = PROCESSED_DATA_DIR / "dataset.csv",
-    # -----------------------------------------
-):    
+def main():    
     ref_dataset = get_test_dataset()
 
-    # ---- Thinning evolution ----
-    logger.info("Computing diversity metrics for multiple thinning parameter...")
-    lst_train_datasets = get_thinning_datasets()
-    res_file_path = INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv"
-    evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
+    # # ---- Thinning evolution ----
+    # logger.info("Computing diversity metrics for multiple thinning parameter...")
+    # lst_train_datasets = get_thinning_datasets()
+    # res_file_path = INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv"
+    # evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
 
-    logger.success("Done.")
-    # -----------------------------------------
+    # logger.success("Done.")
+    # # -----------------------------------------
     
-    # ---- Thickening evolution ----
-    logger.info("Computing diversity metrics for multiple thickening parameter...")
-    lst_train_datasets = get_thickening_datasets()
-    res_file_path = INTERIM_DATA_DIR / "thickening_diversity_metrics_local.csv"
-    evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
-    logger.success("Done.")
-    # -----------------------------------------
+    # # ---- Thickening evolution ----
+    # logger.info("Computing diversity metrics for multiple thickening parameter...")
+    # lst_train_datasets = get_thickening_datasets()
+    # res_file_path = INTERIM_DATA_DIR / "thickening_diversity_metrics_local.csv"
+    # evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
+    # logger.success("Done.")
+    # # -----------------------------------------
 
 
     # ---- Multiple scenarios ----
