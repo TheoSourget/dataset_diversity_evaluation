@@ -1,0 +1,118 @@
+title,venue,doi,year
+MobileIQA: Exploiting Mobile-Level Diverse Opinion Network For No-Reference Image Quality Assessment Using Knowledge Distillation,ECCV,10.1007/978-3-031-91856-8_1,2024
+Textual Grounding for Open-Vocabulary Visual Information Extraction in Layout-Diversified Documents,ECCV,10.1007/978-3-031-72995-9_27,2024
+DiVR: Incorporating Context from Diverse VR Scenes for Human Trajectory Prediction,ECCV,10.1007/978-3-031-92387-6_20,2024
+Boosting Transferability in Vision-Language Attacks via Diversification Along the Intersection Region of Adversarial Trajectory,ECCV,10.1007/978-3-031-72998-0_25,2024
+On Pretraining Data Diversity for Self-Supervised Learning,ECCV,10.1007/978-3-031-72992-8_4,2024
+Improving Geo-Diversity of Generated Images with Contextualized Vendi Score Guidance,ECCV,10.1007/978-3-031-73021-4_13,2024
+Learn to Preserve and Diversify: Parameter-Efficient Group with Orthogonal Regularization for Domain Generalization,ECCV,10.1007/978-3-031-72983-6_12,2024
+Semantic Diversity-Aware Prototype-Based Learning for Unbiased Scene Graph Generation,ECCV,10.1007/978-3-031-73113-6_22,2024
+FedHARM: Harmonizing Model Architectural Diversity in Federated Learning,ECCV,10.1007/978-3-031-73036-8_3,2024
+Adaptive High-Frequency Transformer for Diverse Wildlife Re-identification,ECCV,10.1007/978-3-031-72784-9_17,2024
+FreestyleRet: Retrieving Images from Style-Diversified Queries,ECCV,10.1007/978-3-031-73337-6_15,2024
+OpenKD: Opening Prompt Diversity for Zero- and Few-Shot Keypoint Detection,ECCV,10.1007/978-3-031-72655-2_9,2024
+Optimal Transport of Diverse Unsupervised Tasks for Robust Learning from Noisy Few-Shot Data,ECCV,10.1007/978-3-031-72933-1_17,2024
+SAVE: Protagonist Diversification with Structure Agnostic Video Editing,ECCV,10.1007/978-3-031-72989-8_3,2024
+Diverse Text-to-3D Synthesis with Augmented Text Embedding,ECCV,10.1007/978-3-031-73226-3_13,2024
+Q&amp;A Prompts: Discovering Rich Visual Clues through Mining Question-Answer Prompts for VQA requiring Diverse World Knowledge,ECCV,10.1007/978-3-031-72946-1_16,2024
+PredBench: Benchmarking Spatio-Temporal Prediction Across Diverse Disciplines,ECCV,10.1007/978-3-031-73636-0_17,2024
+Feature Diversification and Adaptation for Federated Domain Generalization,ECCV,10.1007/978-3-031-73220-1_4,2024
+ProtoComp: Diverse Point Cloud Completion with Controllable Prototype,ECCV,10.1007/978-3-031-72973-7_16,2024
+GraspXL: Generating Grasping Motions for Diverse Objects at Scale,ECCV,10.1007/978-3-031-73347-5_22,2024
+EgoBody3M: Egocentric Body Tracking on a VR Headset using a Diverse Dataset,ECCV,10.1007/978-3-031-72986-7_22,2024
+Alternate Diverse Teaching for Semi-supervised Medical Image Segmentation,ECCV,10.1007/978-3-031-72652-1_14,2024
+DGR-MIL: Exploring Diverse Global Representation in Multiple Instance Learning for Whole Slide Image Classification,ECCV,10.1007/978-3-031-72920-1_19,2024
+Diversified Dynamic Routing for Vision Tasks,ECCV,10.1007/978-3-031-25069-9_48,2022
+Towards Regression-Free Neural Networks for Diverse Compute Platforms,ECCV,10.1007/978-3-031-19836-6_34,2022
+Probing Contextual Diversity for Dense Out-of-Distribution Detection,ECCV,10.1007/978-3-031-25072-9_34,2022
+Class-Agnostic Object Counting Robust to Intraclass Diversity,ECCV,10.1007/978-3-031-19827-4_23,2022
+Diverse Generation from a Single Video Made Possible,ECCV,10.1007/978-3-031-19790-1_30,2022
+DeltaGAN: Towards Diverse Few-Shot Image Generation with Sample-Specific Delta,ECCV,10.1007/978-3-031-19787-1_15,2022
+Diverse Learner: Exploring Diverse Supervision for Semi-supervised Object Detection,ECCV,10.1007/978-3-031-20056-4_37,2022
+Contrastive Learning for Diverse Disentangled Foreground Generation,ECCV,10.1007/978-3-031-19787-1_19,2022
+Attention Diversification for Domain Generalization,ECCV,10.1007/978-3-031-19830-4_19,2022
+Deep Ensemble Learning by Diverse Knowledge Distillation for Fine-Grained Object Classification,ECCV,10.1007/978-3-031-20083-0_30,2022
+MimicME: A Large Scale Diverse 4D Database for Facial Expression Analysis,ECCV,10.1007/978-3-031-20074-8_27,2022
+TEMOS: Generating Diverse Human Motions from Textual Descriptions,ECCV,10.1007/978-3-031-20047-2_28,2022
+CODER: Coupled Diversity-Sensitive Momentum Contrastive Learning for Image-Text Retrieval,ECCV,10.1007/978-3-031-20059-5_40,2022
+Diverse Image Inpainting with Normalizing Flow,ECCV,10.1007/978-3-031-20050-2_4,2022
+Diverse Human Motion Prediction Guided by Multi-level Spatial-Temporal Anchors,ECCV,10.1007/978-3-031-20047-2_15,2022
+Data Association Between Event Streams and Intensity Frames Under Diverse Baselines,ECCV,10.1007/978-3-031-20071-7_5,2022
+Contextual Diversity for Active Learning,ECCV,10.1007/978-3-030-58517-4_9,2020
+EPrOD: Evolved Probabilistic Object Detector with Diverse Samples,ECCV,10.1007/978-3-030-65414-6_6,2020
+Adaptive Margin Diversity Regularizer for Handling Data Imbalance in Zero-Shot SBIR,ECCV,10.1007/978-3-030-58558-7_21,2020
+DiVA: Diverse Visual Feature Aggregation for Deep Metric Learning,ECCV,10.1007/978-3-030-58598-3_35,2020
+Diversified Mutual Learning for Deep Metric Learning,ECCV,10.1007/978-3-030-66415-2_49,2020
+Diverse and Admissible Trajectory Forecasting Through Multimodal Context Understanding,ECCV,10.1007/978-3-030-58621-8_17,2020
+A Simple Way to Make Neural Networks Robust Against Diverse Image Corruptions,ECCV,10.1007/978-3-030-58580-8_4,2020
+DLow: Diversifying Latent Flows for Diverse Human Motion Prediction,ECCV,10.1007/978-3-030-58545-7_20,2020
+On Diverse Asynchronous Activity Anticipation,ECCV,10.1007/978-3-030-58526-6_46,2020
+Improving the Transferability of Adversarial Examples with Resized-Diverse-Inputs Diversity-Ensemble and Region Fitting,ECCV,10.1007/978-3-030-58542-6_34,2020
+Diverse Feature Visualizations Reveal Invariances in Early Layers of Deep Neural Networks,ECCV,10.1007/978-3-030-01258-8_14,2018
+Diverse and Coherent Paragraph Generation from Images,ECCV,10.1007/978-3-030-01216-8_45,2018
+Diverse Conditional Image Generation by Stochastic Regression with Latent Drop-Out Codes,ECCV,10.1007/978-3-030-01270-0_25,2018
+Diverse Image-to-Image Translation via Disentangled Representations,ECCV,10.1007/978-3-030-01246-5_3,2018
+How Local Is the Local Diversity? Reinforcing Sequential Determinantal Point Processes with Dynamic Ground Sets for Supervised Video Summarization,ECCV,10.1007/978-3-030-01237-3_10,2018
+Structural Consistency and Controllability for Diverse Colorization,ECCV,10.1007/978-3-030-01231-1_37,2018
+r2p2: A ReparameteRized Pushforward Policy for Diverse Precise Generative Path Forecasting,ECCV,10.1007/978-3-030-01261-8_47,2018
+Incremental Multi-graph Matching via Diversity and Randomness Based Graph Clustering,ECCV,10.1007/978-3-030-01261-8_9,2018
+Learning Diverse Models: The Coulomb Structured Support Vector Machine,ECCV,10.1007/978-3-319-46487-9_36,2016
+Diverse M-Best Solutions in Markov Random Fields,ECCV,10.1007/978-3-642-33715-4_1,2012
+Facial Model Fitting Based on Perturbation Learning and It&apos;s Evaluation on Challenging Real-World Diversities Images,ECCV,10.1007/978-3-642-33863-2_16,2012
+Synthesizing Diverse Human Motions in 3D Indoor Scenes,ICCV,10.1109/ICCV51070.2023.01354,2023
+Zenseact Open Dataset: A large-scale and diverse multimodal dataset for autonomous driving,ICCV,10.1109/ICCV51070.2023.01846,2023
+Quality Diversity for Visual Pre-Training,ICCV,10.1109/ICCV51070.2023.00496,2023
+Revisiting Domain-Adaptive 3D Object Detection by Reliable Diverse and Class-balanced Pseudo-Labeling,ICCV,10.1109/ICCV51070.2023.00344,2023
+DNA-Rendering: A Diverse Neural Actor Repository for High-Fidelity Human-centric Rendering,ICCV,10.1109/ICCV51070.2023.01829,2023
+Diverse Data Augmentation with Diffusions for Effective Test-time Prompt Tuning,ICCV,10.1109/ICCV51070.2023.00255,2023
+ICL-D3IE: In-Context Learning with Diverse Demonstrations Updating for Document Information Extraction,ICCV,10.1109/ICCV51070.2023.01785,2023
+Improving Diversity in Zero-Shot GAN Adaptation with Semantic Variations,ICCV,10.1109/ICCV51070.2023.00667,2023
+A Unified Framework for Robustness on Diverse Sampling Errors,ICCV,10.1109/ICCV51070.2023.00141,2023
+Semi-Supervised Semantic Segmentation under Label Noise via Diverse Learning Groups,ICCV,10.1109/ICCV51070.2023.00119,2023
+Diverse Cotraining Makes Strong Semi-Supervised Segmentor,ICCV,10.1109/ICCV51070.2023.01471,2023
+Heterogeneous Diversity Driven Active Learning for Multi-Object Tracking,ICCV,10.1109/ICCV51070.2023.00911,2023
+Dark Side Augmentation: Generating Diverse Night Examples for Metric Learning,ICCV,10.1109/ICCV51070.2023.01024,2023
+ElasticViT: Conflict-aware Supernet Training for Deploying Fast Vision Transformer on Diverse Mobile Devices,ICCV,10.1109/ICCV51070.2023.00536,2023
+Learning with Diversity: Self-Expanded Equalization for Better Generalized Deep Metric Learning,ICCV,10.1109/ICCV51070.2023.01774,2023
+Diverse Inpainting and Editing with GAN Inversion,ICCV,10.1109/ICCV51070.2023.02113,2023
+Both Diverse and Realism Matter: Physical Attribute and Style Alignment for Rainy Image Generation,ICCV,10.1109/ICCV51070.2023.01138,2023
+MDCS: More Diverse Experts with Consistency Self-distillation for Long-tailed Recognition,ICCV,10.1109/ICCV51070.2023.01065,2023
+LaRS: A Diverse Panoptic Maritime Obstacle Detection Dataset and Benchmark,ICCV,10.1109/ICCV51070.2023.01857,2023
+Assessing the Impact of Diversity on the Resilience of Deep Learning Ensembles: A Comparative Study on Model Architecture Output Activation and Attribution,ICCV,10.1109/ICCVW60793.2023.00475,2023
+Pollinators as Data Collectors: Estimating Floral Diversity with Bees and Computer Vision,ICCV,10.1109/ICCVW60793.2023.00071,2023
+Audio2Gestures: Generating Diverse Gestures from Speech Audio with Conditional Variational Autoencoders,ICCV,10.1109/ICCV48922.2021.01110,2021
+Contextually Plausible and Diverse 3D Human Motion Prediction,ICCV,10.1109/ICCV48922.2021.01114,2021
+Semantic Diversity Learning for Zero-Shot Multi-label Classification,ICCV,10.1109/ICCV48922.2021.00068,2021
+Diverse Image Style Transfer via Invertible Cross-Space Mapping,ICCV,10.1109/ICCV48922.2021.01461,2021
+LookOut: Diverse Multi-Future Prediction and Planning for Self-Driving,ICCV,10.1109/ICCV48922.2021.01580,2021
+Exploring Inter-Channel Correlation for Diversity-preserved Knowledge Distillation,ICCV,10.1109/ICCV48922.2021.00816,2021
+DivAug: Plug-in Automated Data Augmentation with Explicit Diversity Maximization,ICCV,10.1109/ICCV48922.2021.00472,2021
+Likelihood-Based Diverse Sampling for Trajectory Forecasting,ICCV,10.1109/ICCV48922.2021.01303,2021
+Generating Smooth Pose Sequences for Diverse Human Motion Prediction,ICCV,10.1109/ICCV48922.2021.01306,2021
+Distilling Optimal Neural Networks: Rapid Search in Diverse Spaces,ICCV,10.1109/ICCV48922.2021.01201,2021
+Focus on the Positives: Self-Supervised Learning for Biodiversity Monitoring,ICCV,10.1109/ICCV48922.2021.01041,2021
+Beyond Trivial Counterfactual Explanations with Diverse Valuable Explanations,ICCV,10.1109/ICCV48922.2021.00109,2021
+Partial Off-policy Learning: Balance Accuracy and Diversity for Human-Oriented Image Captioning,ICCV,10.1109/ICCV48922.2021.00219,2021
+Can Shape Structure Features Improve Model Robustness under Diverse Adversarial Settings?,ICCV,10.1109/ICCV48922.2021.00743,2021
+Learning to Diversify for Single Domain Generalization,ICCV,10.1109/ICCV48922.2021.00087,2021
+ReDAL: Region-based and Diversity-aware Active Learning for Point Cloud Semantic Segmentation,ICCV,10.1109/ICCV48922.2021.01522,2021
+Towards Vivid and Diverse Image Colorization with Generative Color Prior,ICCV,10.1109/ICCV48922.2021.01411,2021
+PoinTr: Diverse Point Cloud Completion with Geometry-Aware Transformers,ICCV,10.1109/ICCV48922.2021.01227,2021
+Preservational Learning Improves Self-supervised Medical Image Models by Reconstructing Diverse Contexts,ICCV,10.1109/ICCV48922.2021.00348,2021
+Encouraging Intra-Class Diversity Through a Reverse Contrastive Loss for Single-Source Domain Generalization,ICCV,10.1109/ICCVW54120.2021.00012,2021
+MultiTask-CenterNet (MCN): Efficient and Diverse Multitask Learning using an Anchor Free Approach,ICCV,10.1109/ICCVW54120.2021.00116,2021
+Sequential Latent Spaces for Modeling the Intention During Diverse Image Captioning,ICCV,10.1109/ICCV.2019.00436,2019
+ABD-Net: Attentive but Diverse Person Re-Identification,ICCV,10.1109/ICCV.2019.00844,2019
+Diversity With Cooperation: Ensemble Methods for Few-Shot Classification,ICCV,10.1109/ICCV.2019.00382,2019
+FiNet: Compatible and Diverse Fashion Image Inpainting,ICCV,10.1109/ICCV.2019.00458,2019
+Adversarial Defense via Learning to Generate Diverse Attacks,ICCV,10.1109/ICCV.2019.00283,2019
+Diverse Image Synthesis From Semantic Layouts via Conditional IMLE,ICCV,10.1109/ICCV.2019.00432,2019
+MultiSeg: Semantically Meaningful Scale-Diverse Segmentations From Minimal User Input,ICCV,10.1109/ICCV.2019.00075,2019
+Generating Diverse and Descriptive Image Captions Using Visual Paraphrases,ICCV,10.1109/ICCV.2019.00434,2019
+3D Face Modeling From Diverse Raw Scan Data,ICCV,10.1109/ICCV.2019.00950,2019
+DIV8K: DIVerse 8K Resolution Image Dataset,ICCV,10.1109/ICCVW.2019.00435,2019
+Towards Diverse and Natural Image Descriptions via a Conditional GAN,ICCV,10.1109/ICCV.2017.323,2017
+Generating Multiple Diverse Hypotheses for Human 3D Pose Consistent with 2D Joint Detections,ICCV,10.1109/ICCVW.2017.100,2017
+Inferring M-Best Diverse Labelings in a Single One,ICCV,10.1109/ICCV.2015.211,2015
+Robust Real-Time Tracking with Diverse Ensembles and Random Projections,ICCV,10.1109/ICCVW.2013.21,2013
+Learning specific-class segmentation from diverse data,ICCV,10.1109/ICCV.2011.6126446,2011
