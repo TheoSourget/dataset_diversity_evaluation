@@ -12,4 +12,5 @@ matplotlib
 seaborn
 ipykernel
 vendi_score[all]
+rouge-score
 -e .
