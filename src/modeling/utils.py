@@ -1,5 +1,6 @@
 from copy import deepcopy
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import ConcatDataset
 torch.manual_seed(1907)
@@ -12,14 +13,17 @@ def stratified_downsampling_dataset(dataset,frac=0.1):
     #If dataset is a ConcatDataset, need to apply the resampling to all the dataset within it
     if isinstance(dataset,ConcatDataset):
         lst_datasets=[]
+        lst_labels = []
         for d in dataset.datasets:
             d_downsample = deepcopy(d)
             idxs = d_downsample.labels_csv.groupby('label', group_keys=False)["label"].apply(lambda x: x.sample(frac=frac)).index
             d_downsample.labels_csv = d_downsample.labels_csv.iloc[idxs].reset_index(drop=True)
             d_downsample.imgs = d_downsample.imgs[idxs]
             lst_datasets.append(d_downsample)
+            lst_labels.append(d_downsample.labels_csv)
         d_downsample = ConcatDataset(lst_datasets)
         d_downsample.as_tensor = dataset.datasets[0].as_tensor
+        d_downsample.labels_csv = pd.concat(lst_labels, ignore_index=True)
     else:
         d_downsample = deepcopy(dataset)
         idxs = d_downsample.labels_csv.groupby('label', group_keys=False)["label"].apply(lambda x: x.sample(frac=frac)).index
@@ -33,15 +37,19 @@ def bootstrap_resampling(dataset):
     """
     if isinstance(dataset,ConcatDataset):
         lst_datasets=[]
+        lst_labels = []
         idxs = np.random.randint(0, len(dataset.datasets[0].labels_csv), len(dataset.datasets[0].labels_csv)*len(dataset.datasets))
         for i,d in enumerate(dataset.datasets):
             d_bootstrap = deepcopy(d)
             idxs_d = idxs[i*len(dataset.datasets[0].labels_csv):(i+1)*len(dataset.datasets[0].labels_csv)]
             d_bootstrap.labels_csv = d_bootstrap.labels_csv.iloc[idxs_d].reset_index(drop=True)
             d_bootstrap.imgs = d_bootstrap.imgs[idxs_d]
+            lst_labels.append(d_bootstrap.labels_csv)
             lst_datasets.append(d_bootstrap)
         d_bootstrap = ConcatDataset(lst_datasets)
         d_bootstrap.as_tensor = dataset.datasets[0].as_tensor
+        d_bootstrap.labels_csv = pd.concat(lst_labels, ignore_index=True)
+
     else:
         d_bootstrap = deepcopy(dataset)
         idxs = np.random.randint(0, len(d_bootstrap.labels_csv), len(d_bootstrap.labels_csv))

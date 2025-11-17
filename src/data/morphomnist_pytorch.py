@@ -20,13 +20,13 @@ class MorphoMNISTDataset(Dataset):
             - morpho_transforms: list, morpho transformation to apply to the images, use None to use the base images
             - as_tensor: bool, Define if the __getitem__ returns the images as a tensor or as a numpy array
         """
+        self.dataset_name = dataset_name
+        self.as_tensor = as_tensor
         self.morpho_transforms = morpho_transforms
         self.labels_csv = pd.read_csv(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/labels.csv")
         self.labels_csv["dataset_name"] = dataset_name
         self.labels_csv["img_path"] = self.labels_csv["img_id"].apply(lambda img_id: PROCESSED_DATA_DIR / f"morphomnist/{split}/{img_id}")
         self.imgs = np.array([self.__load_img__(path) for path in self.labels_csv["img_path"]])
-        self.dataset_name = dataset_name
-        self.as_tensor = as_tensor
         
 
     def __load_img__(self,path):
@@ -69,15 +69,9 @@ def get_thinning_datasets():
     """
     config_datasets = {
         "thin_0": None,
-        "thin_10": [perturb.Thinning(amount=0.1)],
         "thin_20": [perturb.Thinning(amount=0.2)],
-        "thin_30": [perturb.Thinning(amount=0.3)],
-        "thin_40": [perturb.Thinning(amount=0.4)],
         "thin_50": [perturb.Thinning(amount=0.5)],
-        "thin_60": [perturb.Thinning(amount=0.6)],
         "thin_70": [perturb.Thinning(amount=0.7)],
-        "thin_80": [perturb.Thinning(amount=0.8)],
-        "thin_90": [perturb.Thinning(amount=0.9)],
         "thin_100": [perturb.Thinning(amount=1)],
     }
     
@@ -91,15 +85,9 @@ def get_thickening_datasets():
     """
     config_datasets = {
         "thick_0": None,
-        "thick_10": [perturb.Thickening(amount=0.1)],
         "thick_20": [perturb.Thickening(amount=0.2)],
-        "thick_30": [perturb.Thickening(amount=0.3)],
-        "thick_40": [perturb.Thickening(amount=0.4)],
         "thick_50": [perturb.Thickening(amount=0.5)],
-        "thick_60": [perturb.Thickening(amount=0.6)],
         "thick_70": [perturb.Thickening(amount=0.7)],
-        "thick_80": [perturb.Thickening(amount=0.8)],
-        "thick_90": [perturb.Thickening(amount=0.9)],
         "thick_100": [perturb.Thickening(amount=1)],
     }
     
@@ -126,6 +114,7 @@ def get_perturb_dataset():
                 concat_dataset = ConcatDataset([d1,d2])
                 concat_dataset.dataset_name=f"plain_{d2.dataset_name}"
                 concat_dataset.as_tensor = d1.as_tensor
+                concat_dataset.labels_csv = pd.concat([d1.labels_csv,d2.labels_csv], ignore_index=True)
                 combined_datasets.append(concat_dataset)
     lst_train_datasets = lst_train_datasets+ combined_datasets
     return lst_train_datasets
