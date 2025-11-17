@@ -83,7 +83,13 @@ def inception_score(dataset, batch_size=32, resize=False, splits=1):
             batchv = Variable(batch)
             lst_preds.append(get_pred(batchv))
         preds = np.concatenate(lst_preds,axis=0)
-        dataset.orig.labels_csv["inception_preds"]=pd.Series(preds.tolist())
+        #Save the features for later use in bootstrap, if the dataset is a ConcatDataset save in the dataframes of the original datasets to be selected to be effective during bootstrap.
+        if isinstance(dataset.orig,ConcatDataset):
+            for i,d in enumerate(dataset.orig.datasets):
+                d.labels_csv["inception_preds"]=pd.Series(preds[i*len(d.labels_csv):(i+1)*len(d.labels_csv)].tolist())
+        else:
+            dataset.orig.labels_csv["inception_preds"]=pd.Series(preds.tolist())
+
     else:
         preds = np.stack(dataset.orig.labels_csv["inception_preds"].values)
     # Now compute the mean kl-div
@@ -142,7 +148,13 @@ def fid(dataset,reference_dataset,batch_size=32, resize=False,splits=1,load_ref_
             batchv = Variable(batch)
             lst_features_dataset.append(get_inception_feature(batchv,resize=resize))
         feat_data = np.concatenate(lst_features_dataset,axis=0)
-        dataset.orig.labels_csv["inception_features"]=pd.Series(feat_data.tolist())
+
+        #Save the features for later use in bootstrap, if the dataset is a ConcatDataset save in the dataframes of the original datasets to be selected to be effective during bootstrap.
+        if isinstance(dataset.orig,ConcatDataset):
+            for i,d in enumerate(dataset.orig.datasets):
+                d.labels_csv["inception_features"]=pd.Series(feat_data[i*len(d.labels_csv):(i+1)*len(d.labels_csv)].tolist())
+        else:
+            dataset.orig.labels_csv["inception_features"]=pd.Series(feat_data.tolist())
     else:
         feat_data = np.stack(dataset.orig.labels_csv["inception_features"].values)
     mu_data = np.mean(feat_data, axis=0)
@@ -265,7 +277,7 @@ def get_confidence_interval(values,alpha=5.0):
     upper = np.percentile(values, upper_p)
     return lower,upper
 
-def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=100):
+def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=2):
     #Create csv file with header
     with open(res_file_path,"w") as metrics_csvfile:
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
@@ -278,6 +290,8 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
     lst_vs_inception = []
 
     for dataset in tqdm(lst_train_datasets):
+        if not isinstance(dataset,ConcatDataset):
+            continue
         #Compute each metric on the dataset
         logger.info("compute on full")
         is_dataset = inception_score(dataset,32,True,1)[0]
@@ -355,7 +369,7 @@ def main():
     # ---- Multiple scenarios ----
     logger.info("Computing diversity metrics for multiple scenarios...")
     lst_train_datasets = get_perturb_dataset()
-    res_file_path = INTERIM_DATA_DIR / "diversity_metrics_local.csv"
+    res_file_path = INTERIM_DATA_DIR / "diversity_metrics.csv"
     evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
     logger.success("Done.")
     # -----------------------------------------
