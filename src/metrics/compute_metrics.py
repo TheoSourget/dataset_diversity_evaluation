@@ -290,8 +290,6 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
     lst_vs_inception = []
 
     for dataset in tqdm(lst_train_datasets):
-        if not isinstance(dataset,ConcatDataset):
-            continue
         #Compute each metric on the dataset
         logger.info("compute on full")
         is_dataset = inception_score(dataset,32,True,1)[0]
