@@ -291,7 +291,6 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
 
     for dataset in tqdm(lst_train_datasets):
         #Compute each metric on the dataset
-        logger.info("compute on full")
         is_dataset = inception_score(dataset,32,True,1)[0]
         fid_dataset = fid(dataset,ref_dataset,32,True,1)
         vs_pix_dataset = vendi_score(dataset,1,vs_pixels)
@@ -306,7 +305,6 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         lst_bootstrap_vs_inception = []
 
         for i in range(nb_bootstrap):
-            logger.info(f"compute on bootstrap {i}")
             d_bootstrap = bootstrap_resampling(dataset)
             is_bootstrap = inception_score(d_bootstrap,32,True,1)[0]
             fid_bootstrap = fid(d_bootstrap,ref_dataset,32,True,1,True)
