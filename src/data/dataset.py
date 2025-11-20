@@ -5,11 +5,16 @@ from tqdm import tqdm
 import typer
 
 from src.config import PROCESSED_DATA_DIR, RAW_DATA_DIR
-from src.morphomnist import io
+from src.morphomnist import io as morphoio
+import skimage.io as io
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import gzip
 import struct
+import ast
+import tensorflow as tf
+import glob
 
 app = typer.Typer()
 
@@ -32,26 +37,90 @@ def process_morpho_mnist(split):
         labels = np.frombuffer(f.read(), dtype=np.dtype(np.uint8).newbyteorder('>'))
 
     #Load the images
-    input_images = io.load_idx(imgs_paths)
+    input_images = morphoio.load_idx(imgs_paths)
 
     with open(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/labels.csv","w") as labels_csvfile:
         labels_csvfile.write("img_id,label")
         for i,img in enumerate(tqdm(input_images)):
             labels_csvfile.write(f"\n{i}.png,{labels[i]}")
             plt.imsave(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/{i}.png",img,cmap="gray")
+
+def padchest_filter_and_process_labels():
+    base_df = pd.read_csv(f'{RAW_DATA_DIR}/padchest/labels.csv',index_col=0)
+    invalid_images = pd.read_csv(f'{RAW_DATA_DIR}/padchest/invalid_images.csv', header=None, index_col=0)
     
+    # Excluding NaNs in the labels
+    df_no_nan = base_df[~base_df["Labels"].isna()]
+    # Excluding labels including the 'suboptimal study' label
+    df_no_clear_label = df_no_nan[~df_no_nan["Labels"].str.contains('suboptimal study')]
+    df_no_clear_label = df_no_clear_label[~df_no_nan["Labels"].str.contains('exclude')]
+    df_no_clear_label = df_no_clear_label[~df_no_nan["Labels"].str.contains('Unchanged')]
+
+    # Keeping only the PA, AP and AP_horizontal projections
+    df_view = df_no_clear_label[(df_no_clear_label['Projection'] == 'PA') | (df_no_clear_label['Projection'] == 'AP') | (df_no_clear_label['Projection'] == 'AP_horizontal')]
+
+    # Stripping and lowercasing all individual labels
+    stripped_lowercased_labels = []
+
+    for label_list in list(df_view['Labels']):
+        label_list = ast.literal_eval(label_list)
+        prepped_labels = []
+        
+        for label in label_list:
+            if label != '':
+                new_label = label.strip(' ').lower()   # Stripping and lowercasing
+                prepped_labels.append(new_label)
+        
+        # Removing label duplicates in this appending
+        stripped_lowercased_labels.append(list(set(prepped_labels)))
+
+    # Applying it to the preprocessed dataframe
+    df_view['Labels'] = stripped_lowercased_labels    
+
+    df_view['label_pneumothorax'] = df_view['Labels'].apply(lambda label_list: 1 if "pneumothorax" in label_list else 0)
+    df_to_save = df_view.reset_index(drop=True)
+    df_to_save.to_csv(f"{PROCESSED_DATA_DIR}/padchest/processed_labels.csv",sep=",")
+
+
+
+def padchest_process_images():
+    #Load labels
+    labels = pd.read_csv(f'{PROCESSED_DATA_DIR}/padchest/processed_labels.csv')
     
+    #Get images present at input_filepath
+    images_path = glob.glob(f"{RAW_DATA_DIR}/padchest/**/*.png",recursive=True)
+    image_names = [path.split('/')[-1] for path in images_path]
+    for idx,i_name in enumerate(tqdm(image_names)):
+        #Resize the image and save it in the processed folder
+        if i_name in labels["ImageID"].unique():
+            img = np.expand_dims(io.imread(images_path[idx]),-1)
+            max_value = np.max(img) 
+            img = tf.image.resize_with_pad(img, 512, 512)
+            img = img/max_value
+            tf.keras.utils.save_img(f"{PROCESSED_DATA_DIR}/padchest/images/{i_name}", img, scale=True, data_format="channels_last")  
+
+
+
+def process_padchest():
+    Path(f"{PROCESSED_DATA_DIR}/padchest/images").mkdir(parents=True, exist_ok=True)
+    logger.info("Processing labels for PadChest dataset...")
+    padchest_filter_and_process_labels()
+    logger.info("Processing images for PadChest dataset...")
+    padchest_process_images()
 
 @app.command()
 def main():
-    logger.info("Processing train MorphoMNIST dataset...")
-    process_morpho_mnist(split="train")
-    logger.success("Processing train MorphoMNIST complete.")
+    # logger.info("Processing train MorphoMNIST dataset...")
+    # process_morpho_mnist(split="train")
+    # logger.success("Processing train MorphoMNIST complete.")
 
-    logger.info("Processing test MorphoMNIST dataset...")
-    process_morpho_mnist(split="test")
-    logger.success("Processing test MorphoMNIST complete.")
+    # logger.info("Processing test MorphoMNIST dataset...")
+    # process_morpho_mnist(split="test")
+    # logger.success("Processing test MorphoMNIST complete.")
 
+    logger.info("Processing PadChest dataset...")
+    process_padchest()
+    logger.success("Processing PadChest complete.")
 
 if __name__ == "__main__":
     app()
