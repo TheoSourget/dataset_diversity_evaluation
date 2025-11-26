@@ -51,16 +51,16 @@ class MorphoMNISTDataset(Dataset):
     def __getitem__(self, idx):
         #Get sample info in the csv
         img_row = self.labels_csv.iloc[idx]
-        
+        text = f"Image of a handwritten {self.dataset_name} {img_row['label']}"
         #Get a copy of the image so that potential later transformations are not applied to the original image
         image = deepcopy(self.imgs[idx])
 
         if self.as_tensor:
             #Return image and label as Tensor
-            return torch.Tensor(image), torch.tensor(img_row["label"]),img_row["img_id"],self.dataset_name
+            return torch.Tensor(image), text, torch.tensor(img_row["label"]),img_row["img_id"],self.dataset_name
         else:
             #Return image as numpy array and label as str
-            return image,img_row["label"],img_row["img_id"],self.dataset_name
+            return image,text,img_row["label"],img_row["img_id"],self.dataset_name
 
 
 def get_thinning_datasets():

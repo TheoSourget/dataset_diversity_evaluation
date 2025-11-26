@@ -23,6 +23,7 @@ from scipy.linalg import sqrtm
 from vendi_score import vendi
 from skimage.feature import hog
 
+from FlagEmbedding import BGEM3FlagModel
 from rouge_score import rouge_scorer
 
 from copy import deepcopy
@@ -266,8 +267,19 @@ def rougeL(dataset):
         t1 = texts[i]
         for j in range(i+1,len(texts)):
             t2 = texts[j]
-            rouge_scores.append(scorer.score(t1,t2).fmeasure) 
+            rouge_scores.append(scorer.score(t1,t2)["rougeL"].fmeasure) 
     return np.mean(rouge_scores)
+
+
+def semantic_similarity(dataset):
+    model = BGEM3FlagModel('BAAI/bge-m3',  
+                       use_fp16=True)
+    sentences = [item[1] for item in dataset]
+    embeddings = model.encode(sentences,batch_size=12, max_length=8192,verbose=False)['dense_vecs']
+    similarity = embeddings @ embeddings.T
+    return np.mean(similarity)
+
+
 
 def get_confidence_interval(values,alpha=5.0):
     alpha = 5.0
@@ -288,6 +300,8 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
     lst_vs_pix = []
     lst_vs_hog = []
     lst_vs_inception = []
+    lst_rougeL = []
+    lst_semantic_similarity = []
 
     for dataset in tqdm(lst_train_datasets):
         #Compute each metric on the dataset
@@ -296,6 +310,8 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         vs_pix_dataset = vendi_score(dataset,1,vs_pixels)
         vs_hog_dataset = vendi_score(dataset,1,vs_hog)
         vs_inception_dataset = vendi_score(dataset,1,vs_inception_features)
+        rougeL_dataset = rougeL(dataset)
+        semantic_similarity_dataset = semantic_similarity(dataset)
 
         #List of metrics value on bootstrap version of the dataset
         lst_bootstrap_is = []
@@ -303,6 +319,8 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         lst_bootstrap_vs_pix = []
         lst_bootstrap_vs_hog = []
         lst_bootstrap_vs_inception = []
+        lst_bootstrap_rougeL = []
+        lst_bootstrap_semantic_sim = []
 
         for i in range(nb_bootstrap):
             d_bootstrap = bootstrap_resampling(dataset)
@@ -311,12 +329,16 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
             vs_pix_bootstrap = vendi_score(d_bootstrap,5,vs_pixels)
             vs_hog_bootstrap = vendi_score(d_bootstrap,5,vs_hog)
             vs_inception_bootstrap = vendi_score(d_bootstrap,5,vs_inception_features)
+            rougeL_bootstrap = rougeL(d_bootstrap)
+            semantic_similarity_bootstrap = semantic_similarity(d_bootstrap)
 
             lst_bootstrap_is.append(is_bootstrap)
             lst_bootstrap_fid.append(fid_bootstrap)
             lst_bootstrap_vs_pix.append(vs_pix_bootstrap)
             lst_bootstrap_vs_hog.append(vs_hog_bootstrap)
             lst_bootstrap_vs_inception.append(vs_inception_bootstrap)
+            lst_bootstrap_rougeL.append(rougeL_bootstrap)
+            lst_bootstrap_semantic_sim.append(semantic_similarity_bootstrap)
 
         #Compute the 95% confidence interval from the boostrap values
         l_is,u_is = get_confidence_interval(lst_bootstrap_is)
@@ -324,6 +346,8 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         l_vs_pix,u_vs_pix = get_confidence_interval(lst_bootstrap_vs_pix)
         l_vs_hog,u_vs_hog = get_confidence_interval(lst_bootstrap_vs_hog)
         l_vs_inception,u_vs_inception = get_confidence_interval(lst_bootstrap_vs_inception)
+        l_rougeL,u_rougeL = get_confidence_interval(lst_bootstrap_rougeL)
+        l_semantic_sim,u_semantic_sim = get_confidence_interval(lst_bootstrap_semantic_sim)
 
         #Add the metric and CI
         lst_is.append(f"{is_dataset}_{l_is}_{u_is}")
@@ -331,7 +355,9 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         lst_vs_pix.append(f"{vs_pix_dataset}_{l_vs_pix}_{u_vs_pix}")
         lst_vs_hog.append(f"{vs_hog_dataset}_{l_vs_hog}_{u_vs_hog}")
         lst_vs_inception.append(f"{vs_inception_dataset}_{l_vs_inception}_{u_vs_inception}")
-    
+        lst_rougeL.append(f"{rougeL_dataset}_{l_rougeL}_{u_rougeL}")
+        lst_semantic_similarity.append(f"{semantic_similarity_dataset}_{l_semantic_sim}_{u_semantic_sim}")
+
     #Write the result in the csv file
     with open(res_file_path,"a+") as metrics_csvfile:
         metrics_csvfile.write(f"\ninception_score,{','.join([str(is_d) for is_d in lst_is])}")
@@ -339,6 +365,8 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         metrics_csvfile.write(f"\nvs_pixel,{','.join([str(vs_d) for vs_d in lst_vs_pix])}")    
         metrics_csvfile.write(f"\nvs_hog,{','.join([str(vs_d) for vs_d in lst_vs_hog])}")    
         metrics_csvfile.write(f"\nvs_inception,{','.join([str(vs_d) for vs_d in lst_vs_inception])}")    
+        metrics_csvfile.write(f"\nrougeL,{','.join([str(rougel_d) for rougel_d in lst_rougeL])}")    
+        metrics_csvfile.write(f"\nsemantic_similarity,{','.join([str(semantic_sim_d) for semantic_sim_d in lst_semantic_similarity])}")    
 
 @app.command()
 def main():    
