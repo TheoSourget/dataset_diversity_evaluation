@@ -13,4 +13,7 @@ seaborn
 ipykernel
 vendi_score[all]
 rouge-score
+tensorflow==2.19.1
+FlagEmbedding
+tf-keras
 -e .
