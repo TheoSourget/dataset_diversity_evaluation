@@ -7,8 +7,10 @@ from src.morphomnist import morpho
 import numpy as np
 from copy import deepcopy
 
-from src.config import PROCESSED_DATA_DIR
+from src.config import PROCESSED_DATA_DIR,INTERIM_DATA_DIR
 from src.morphomnist import perturb
+from pathlib import Path
+
 
 class MorphoMNISTDataset(Dataset):
     def __init__(self, split, dataset_name, morpho_transforms, as_tensor=False):
@@ -26,8 +28,15 @@ class MorphoMNISTDataset(Dataset):
         self.labels_csv = pd.read_csv(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/labels.csv")
         self.labels_csv["dataset_name"] = dataset_name
         self.labels_csv["img_path"] = self.labels_csv["img_id"].apply(lambda img_id: PROCESSED_DATA_DIR / f"morphomnist/{split}/{img_id}")
-        self.imgs = np.array([self.__load_img__(path) for path in self.labels_csv["img_path"]])
-        
+
+        imgs_path = INTERIM_DATA_DIR/f"morphomnist_datasets/{split}_{dataset_name}.npy"
+        if imgs_path.is_file():
+            print(f"{split} {dataset_name}: Loading imgs from files")
+            self.imgs = np.load(imgs_path)
+        else:
+            print(f"{split} {dataset_name}: Generating and saving imgs")
+            self.imgs = np.array([self.__load_img__(path) for path in self.labels_csv["img_path"]])
+            np.save(imgs_path,self.imgs)
 
     def __load_img__(self,path):
         image = decode_image(path,ImageReadMode.GRAY).detach().cpu().numpy()[0,:,:]
