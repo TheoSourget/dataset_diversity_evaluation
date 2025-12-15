@@ -39,7 +39,7 @@ def training_epoch(model,criterion,optimizer,train_dataloader):
     lst_labels = []
     lst_probas = []
     for i, data in enumerate(train_dataloader, 0):
-        inputs, labels, img_ids, dataset_names = data
+        inputs, texts, labels, img_ids, dataset_names = data
         inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
 
         # zero the parameter gradients
@@ -71,7 +71,7 @@ def valid_epoch(model,criterion,dataloader):
     lst_probas = []
     with torch.no_grad():
         for i, data in enumerate(dataloader, 0):
-            inputs, labels, img_ids, dataset_names = data
+            inputs, texts, labels, img_ids, dataset_names = data
             inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
 
             # forward + backward
@@ -100,7 +100,7 @@ def compute_datamap_info(model,dataloader):
     lst_dataset_names = []
     with torch.no_grad():
         for i, data in enumerate(dataloader, 0):
-            inputs, labels, img_ids, dataset_names = data
+            inputs, texts, labels, img_ids, dataset_names = data
             inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
             
             # forward + backward
