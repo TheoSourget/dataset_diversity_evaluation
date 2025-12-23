@@ -263,28 +263,40 @@ def vendi_score(dataset,nb_resampling,feature_function):
 
 def rougeL(dataset,nb_resampling):
     lst_RougeL = []
-    for _ in range(nb_resampling):
+    for _ in tqdm(range(nb_resampling)):
+        #Downsample the data for computational 
         d_downsample = stratified_downsampling_dataset(dataset)
+
+        #Instantiate the rougeL scorer and get all the text from the dataset
         scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
         rouge_scores = []
         texts = [item[1] for item in d_downsample]
+
+        #For each pair of text compute the rougeL score
         for i in range(len(texts)):
             t1 = texts[i]
             for j in range(i+1,len(texts)):
                 t2 = texts[j]
                 rouge_scores.append(scorer.score(t1,t2)["rougeL"].fmeasure) 
+        
+        #Add the mean rougeL score of the current downsampled dataset
         lst_RougeL.append(np.mean(rouge_scores))
+    #Return the mean over all resampling
     return np.mean(lst_RougeL)
 
 
 def semantic_similarity(dataset):
+    #Instantiate the model
     model = BGEM3FlagModel('BAAI/bge-m3',  
                use_fp16=True)
+    #Get all texts from the dataset
     sentences = [item[1] for item in dataset]
+    #Get texts embeddings
     embeddings = model.encode(sentences,batch_size=64, max_length=8192,verbose=False)['dense_vecs']
+    #Convert to tensor for faster computation on GPU
     embeddings = torch.tensor(embeddings).to(DEVICE)
+    #Compute pair-wise similarity and return the mean
     similarity = embeddings @ embeddings.T
-    print(torch.mean(similarity).item())
     return torch.mean(similarity).item()
 
 
@@ -311,7 +323,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
     lst_semantic_similarity = []
 
     for dataset in tqdm(lst_train_datasets):
-        print("FULL")
+        logger.info(f"Computing metrics on {dataset.dataset_name}")
         #Compute each metric on the dataset
         # is_dataset = inception_score(dataset,32,True,1)[0]
         # fid_dataset = fid(dataset,ref_dataset,32,True,1)
@@ -330,7 +342,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         lst_bootstrap_rougeL = []
         lst_bootstrap_semantic_sim = []
 
-        print("BOOTSTRAP")
+        logger.info(f"Computing bootstrap metrics on {dataset}")
         for i in range(nb_bootstrap):
             d_bootstrap = bootstrap_resampling(dataset)
             # is_bootstrap = inception_score(d_bootstrap,32,True,1)[0]
