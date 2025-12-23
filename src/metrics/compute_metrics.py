@@ -31,6 +31,8 @@ from copy import deepcopy
 torch.manual_seed(1907)
 np.random.seed(1907)
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 app = typer.Typer()
 
 class IgnoreLabelDataset(torch.utils.data.Dataset):
@@ -124,7 +126,7 @@ def get_inception_feature(x,resize=False):
     x = inception_model(x)
     return x.data.cpu().numpy()
 
-def fid(dataset,reference_dataset,batch_size=32, resize=False,splits=1,load_ref_stats=False):
+def fid(dataset,reference_dataset,batch_size=32, resize=False,load_ref_stats=False):
     
     dataset = IgnoreLabelDataset(dataset)
     reference_dataset = IgnoreLabelDataset(reference_dataset)
@@ -276,31 +278,14 @@ def rougeL(dataset,nb_resampling):
 
 
 def semantic_similarity(dataset):
-    if "semantic_features" not in dataset.labels_csv.columns:
-        print("COMPUTING EMBEDDINGS")
-        model = BGEM3FlagModel('BAAI/bge-m3',  
-                   use_fp16=True)
-        sentences = [item[1] for item in dataset]
-        embeddings = model.encode(sentences,batch_size=64, max_length=8192,verbose=False)['dense_vecs']
-
-
-        #Save the features for later use in bootstrap, if the dataset is a ConcatDataset save in the dataframes of the original datasets to be selected to be effective during bootstrap.
-        if isinstance(dataset,ConcatDataset):
-            for i,d in enumerate(dataset.datasets):
-                d.labels_csv["semantic_features"]=pd.Series(embeddings[i*len(d.labels_csv):(i+1)*len(d.labels_csv)].tolist())
-        else:
-            dataset.labels_csv["semantic_features"]=pd.Series(embeddings.tolist())
-    else:
-        print("LOADING EMBEDDINGS")
-        embeddings = np.stack(dataset.labels_csv["semantic_features"].values)
-
-    # model = BGEM3FlagModel('BAAI/bge-m3',  
-    #                    use_fp16=True)
-    # sentences = [item[1] for item in dataset]
-    # embeddings = model.encode(sentences,batch_size=12, max_length=8192,verbose=False)['dense_vecs']
+    model = BGEM3FlagModel('BAAI/bge-m3',  
+               use_fp16=True)
+    sentences = [item[1] for item in dataset]
+    embeddings = model.encode(sentences,batch_size=64, max_length=8192,verbose=False)['dense_vecs']
+    embeddings = torch.tensor(embeddings).to(DEVICE)
     similarity = embeddings @ embeddings.T
-    return np.mean(similarity)
-
+    print(torch.mean(similarity).item())
+    return torch.mean(similarity).item()
 
 
 def get_confidence_interval(values,alpha=5.0):

@@ -63,7 +63,8 @@ def metrics_ranking_correlation_matrix(csv_path):
         "vs_pixel":"VS_pix",
         "vs_hog":"VS_hog",
         "vs_inception":"VS_Inception",
-        "AUC":"AUC"
+        "semantic_similarity":"Semantic",
+        "AUC":"AUC",
 
     }
     params_plots = {
@@ -71,7 +72,7 @@ def metrics_ranking_correlation_matrix(csv_path):
         "axes.facecolor": "#ffffff",
     }
     mpl.rcParams.update(params_plots)
-    ascending = [False,True,False,False,False,False]
+    ascending = [False,True,False,False,False,True,False]
     #Load the csv with metrics values
     csv_metrics = pd.read_csv(csv_path,index_col="metric_name")
     csv_metrics = csv_metrics.map(lambda x: float(x.split("_")[0]))
@@ -135,7 +136,7 @@ def evolution_metrics(csv_path,parameter_name):
         ax.fill_between(x, low_CI_values, up_CI_values, alpha=.1)
 
         plt.xlabel(f"{parameter_name} parameter")
-        plt.ylabel(metrics_label.get(metric_name,metric_name))
+        plt.ylabel(metric_name_to_table.get(metric_name,metric_name))
 
         plt.xticks(x)
         plt.title(f"Evolution of the {metric_name} when varying the {parameter_name} parameter")
@@ -207,8 +208,8 @@ def generate_table_metrics(metric_file,output_file):
         "fid":"FID -",
         "vs_pixel":"Vendi Score (pixel values) +",
         "vs_hog":"Vendi Score (HoG) +",
-        "vs_inception":"Vendi Score (Inception) +"
-
+        "vs_inception":"Vendi Score (Inception) +",
+        "semantic_similarity":"Semantic diversity -",
     }
     metrics_df = pd.read_csv(metric_file,index_col="metric_name").T
     auc_df = pd.read_csv(PROCESSED_DATA_DIR/"morphomnist_aucs.csv",index_col="model")
