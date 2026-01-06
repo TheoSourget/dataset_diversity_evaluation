@@ -15,6 +15,7 @@ import struct
 import ast
 import tensorflow as tf
 import glob
+from sklearn.model_selection import GroupShuffleSplit,StratifiedGroupKFold
 
 app = typer.Typer()
 
@@ -77,7 +78,7 @@ def padchest_filter_and_process_labels():
     # Applying it to the preprocessed dataframe
     df_view['Labels'] = stripped_lowercased_labels    
 
-    df_view['label_pneumothorax'] = df_view['Labels'].apply(lambda label_list: 1 if "pneumothorax" in label_list else 0)
+    df_view['label'] = df_view['Labels'].apply(lambda label_list: 1 if "pneumothorax" in label_list else 0)
     df_to_save = df_view.reset_index(drop=True)
     df_to_save.to_csv(f"{PROCESSED_DATA_DIR}/padchest/processed_labels.csv",sep=",")
 
@@ -94,11 +95,32 @@ def padchest_process_images():
         #Resize the image and save it in the processed folder
         if i_name in labels["ImageID"].unique():
             img = np.expand_dims(io.imread(images_path[idx]),-1)
-            max_value = np.max(img) 
+            max_value = np.max(img)
+            if max_value==0:
+                print(f"Discarding {i_name}, black images")
+                continue 
             img = tf.image.resize_with_pad(img, 512, 512)
             img = img/max_value
             tf.keras.utils.save_img(f"{PROCESSED_DATA_DIR}/padchest/images/{i_name}", img, scale=True, data_format="channels_last")  
 
+
+def train_test_split_padchest():
+    #Load labels
+    labels = pd.read_csv(f'{PROCESSED_DATA_DIR}/padchest/processed_labels.csv')
+
+    #Split the data into 80/20 groups, ensuring a single patient is in a single split to avoid data leakage
+    splitter = StratifiedGroupKFold(n_splits=5)
+    train_test_split = splitter.split(X=labels["ImageID"],y=labels["label"], groups=labels['PatientID'])
+    train_idx, test_idx = next(train_test_split)
+    train_labels = labels.iloc[train_idx].reset_index(drop=True)
+    test_labels = labels.iloc[test_idx].reset_index(drop=True)
+    
+    # print(labels["label"].value_counts(),train_labels["label"].value_counts(),test_labels["label"].value_counts())
+    # print(labels[labels["label"]==1]["PatientSex_DICOM"].value_counts(),train_labels[train_labels["label"]==1]["PatientSex_DICOM"].value_counts(),test_labels[test_labels["label"]==1]["PatientSex_DICOM"].value_counts())
+    # print(labels[labels["label"]==1]["Manufacturer_DICOM"].value_counts(),train_labels[train_labels["label"]==1]["Manufacturer_DICOM"].value_counts(),test_labels[test_labels["label"]==1]["Manufacturer_DICOM"].value_counts())
+
+    train_labels.to_csv(f"{PROCESSED_DATA_DIR}/padchest/train_labels.csv",sep=",")
+    test_labels.to_csv(f"{PROCESSED_DATA_DIR}/padchest/test_labels.csv",sep=",")
 
 
 def process_padchest():
@@ -107,6 +129,8 @@ def process_padchest():
     padchest_filter_and_process_labels()
     logger.info("Processing images for PadChest dataset...")
     padchest_process_images()
+    logger.info("Train-Test split of PadChest...")
+    train_test_split_padchest()
 
 @app.command()
 def main():

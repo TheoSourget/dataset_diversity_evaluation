@@ -18,7 +18,8 @@ def stratified_downsampling_dataset(dataset,frac=0.1):
             d_downsample = deepcopy(d)
             idxs = d_downsample.labels_csv.groupby('label', group_keys=False)["label"].apply(lambda x: x.sample(frac=frac)).index
             d_downsample.labels_csv = d_downsample.labels_csv.iloc[idxs].reset_index(drop=True)
-            d_downsample.imgs = d_downsample.imgs[idxs]
+            if hasattr(dataset, 'imgs'):
+                d_downsample.imgs = d_downsample.imgs[idxs]
             lst_datasets.append(d_downsample)
             lst_labels.append(d_downsample.labels_csv)
         d_downsample = ConcatDataset(lst_datasets)
@@ -28,7 +29,8 @@ def stratified_downsampling_dataset(dataset,frac=0.1):
         d_downsample = deepcopy(dataset)
         idxs = d_downsample.labels_csv.groupby('label', group_keys=False)["label"].apply(lambda x: x.sample(frac=frac)).index
         d_downsample.labels_csv = d_downsample.labels_csv.iloc[idxs].reset_index(drop=True)
-        d_downsample.imgs = d_downsample.imgs[idxs]
+        if hasattr(dataset, 'imgs'):
+            d_downsample.imgs = d_downsample.imgs[idxs]
     return d_downsample
 
 def bootstrap_resampling(dataset):
@@ -43,7 +45,8 @@ def bootstrap_resampling(dataset):
             d_bootstrap = deepcopy(d)
             idxs_d = idxs[i*len(dataset.datasets[0].labels_csv):(i+1)*len(dataset.datasets[0].labels_csv)]
             d_bootstrap.labels_csv = d_bootstrap.labels_csv.iloc[idxs_d].reset_index(drop=True)
-            d_bootstrap.imgs = d_bootstrap.imgs[idxs_d]
+            if hasattr(dataset, 'imgs'):
+                d_bootstrap.imgs = d_bootstrap.imgs[idxs_d]
             lst_labels.append(d_bootstrap.labels_csv)
             lst_datasets.append(d_bootstrap)
         d_bootstrap = ConcatDataset(lst_datasets)
@@ -54,5 +57,6 @@ def bootstrap_resampling(dataset):
         d_bootstrap = deepcopy(dataset)
         idxs = np.random.randint(0, len(d_bootstrap.labels_csv), len(d_bootstrap.labels_csv))
         d_bootstrap.labels_csv = d_bootstrap.labels_csv.iloc[idxs].reset_index(drop=True)
-        d_bootstrap.imgs = d_bootstrap.imgs[idxs]
+        if hasattr(dataset, 'imgs'):
+            d_bootstrap.imgs = d_bootstrap.imgs[idxs]
     return d_bootstrap

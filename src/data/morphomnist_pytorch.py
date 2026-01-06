@@ -25,7 +25,7 @@ class MorphoMNISTDataset(Dataset):
         self.dataset_name = dataset_name
         self.as_tensor = as_tensor
         self.morpho_transforms = morpho_transforms
-        self.labels_csv = pd.read_csv(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/labels.csv")
+        self.labels_csv = pd.read_csv(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/labels.csv").head(100)
         self.labels_csv["dataset_name"] = dataset_name
         self.labels_csv["img_path"] = self.labels_csv["img_id"].apply(lambda img_id: PROCESSED_DATA_DIR / f"morphomnist/{split}/{img_id}")
 

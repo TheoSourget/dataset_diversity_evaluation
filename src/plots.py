@@ -63,6 +63,7 @@ def metrics_ranking_correlation_matrix(csv_path):
         "vs_pixel":"VS_pix",
         "vs_hog":"VS_hog",
         "vs_inception":"VS_Inception",
+        "rougeL":"RougeL",
         "semantic_similarity":"Semantic",
         "AUC":"AUC",
 
@@ -72,7 +73,7 @@ def metrics_ranking_correlation_matrix(csv_path):
         "axes.facecolor": "#ffffff",
     }
     mpl.rcParams.update(params_plots)
-    ascending = [False,True,False,False,False,True,False]
+    ascending = [False,True,False,False,False,True,True,False]
     #Load the csv with metrics values
     csv_metrics = pd.read_csv(csv_path,index_col="metric_name")
     csv_metrics = csv_metrics.map(lambda x: float(x.split("_")[0]))
@@ -209,6 +210,7 @@ def generate_table_metrics(metric_file,output_file):
         "vs_pixel":"Vendi Score (pixel values) +",
         "vs_hog":"Vendi Score (HoG) +",
         "vs_inception":"Vendi Score (Inception) +",
+        "rougeL":"RougeL -",
         "semantic_similarity":"Semantic diversity -",
     }
     metrics_df = pd.read_csv(metric_file,index_col="metric_name").T
