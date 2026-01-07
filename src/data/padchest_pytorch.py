@@ -20,7 +20,7 @@ class PadchestDataset(Dataset):
         
         self.labels_csv = self.labels_csv.reset_index(drop=True)
         self.labels_csv["img_paths"] = [f"{PROCESSED_DATA_DIR}/padchest/images/{img_id}" for img_id in self.labels_csv["ImageID"]]
-        self.labels["Report"] = self.labels["Report"].fillna("no report")
+        self.labels_csv["Report"] = self.labels_csv["Report"].fillna("no report")
 
         self.as_tensor = as_tensor
         self.dataset_name = dataset_name
