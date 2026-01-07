@@ -94,15 +94,17 @@ def padchest_process_images():
     for idx,i_name in enumerate(tqdm(image_names)):
         #Resize the image and save it in the processed folder
         if i_name in labels["ImageID"].unique():
-            img = np.expand_dims(io.imread(images_path[idx]),-1)
-            max_value = np.max(img)
-            if max_value==0:
-                print(f"Discarding {i_name}, black images")
-                continue 
-            img = tf.image.resize_with_pad(img, 512, 512)
-            img = img/max_value
-            tf.keras.utils.save_img(f"{PROCESSED_DATA_DIR}/padchest/images/{i_name}", img, scale=True, data_format="channels_last")  
-
+            try:
+                img = np.expand_dims(io.imread(images_path[idx]),-1)
+                max_value = np.max(img)
+                if max_value==0:
+                    print(f"Discarding {i_name}, black images")
+                    continue 
+                img = tf.image.resize_with_pad(img, 512, 512)
+                img = img/max_value
+                tf.keras.utils.save_img(f"{PROCESSED_DATA_DIR}/padchest/images/{i_name}", img, scale=True, data_format="channels_last")  
+            except Exception as e:
+                print(f"Discarding {i_name}, error {e}")
 
 def train_test_split_padchest():
     #Load labels
