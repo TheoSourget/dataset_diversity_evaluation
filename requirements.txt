@@ -12,6 +12,7 @@ matplotlib
 seaborn
 ipykernel
 vendi_score[all]
+radt
 rouge-score
 tensorflow==2.19.1
 FlagEmbedding
