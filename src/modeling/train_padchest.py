@@ -121,6 +121,7 @@ def main(
     epochs: int = 5,
     batch_size: int = 32,
     lr: float = 1e-4,
+    patience: int = 5,
     checkpoint_path: Path = None
 ):
     lst_train_datasets = {dataset.dataset_name:dataset for dataset in get_padchest_datasets_to_evaluate()}
@@ -141,7 +142,7 @@ def main(
 
 
         run.log_param("dataset_config", dataset_config)
-        run.log_param("max_epoch", epochs)
+        # run.log_param("max_epoch", epochs)
         run.log_param("lr", lr)
         run.log_param("batch_size", batch_size)
 
@@ -182,11 +183,13 @@ def main(
                 optimizer = optim.Adam(model.parameters(),lr=lr)
 
                 datamaps_info = {}
+                best_val_loss = np.inf
+                best_epoch = 0
                 #Training/Evaluation loop
                 for e in tqdm(range(epochs)):
                     run.log_metric("epoch", e)
-                    train_loss,aucs_val = training_epoch(model,criterion,optimizer,train_dataloader)
-                    val_loss,aucs_val = valid_epoch(model,criterion,valid_dataloader)
+                    train_loss,auc_train= training_epoch(model,criterion,optimizer,train_dataloader)
+                    val_loss,auc_val = valid_epoch(model,criterion,valid_dataloader)
 
                     #Compute pred on test set for datamap
                     lst_img_ids,lst_dataset_names,lst_labels,lst_probas = compute_datamap_info(model,test_dataloader)
@@ -204,17 +207,24 @@ def main(
                     
                     pd.DataFrame.from_dict(datamaps_info, orient='index').to_csv(training_folder/f"datamaps_values_fold{i}.csv")
 
-                    torch.save({
-                        'optimizer': optimizer.state_dict(),
-                        'model': model.state_dict(),
-                        'last_epoch':e
-                    }, training_folder/f"checkpoint_fold{i}.pth")
-
                     with open(training_folder/f"training_loss_fold{i}.csv","a") as metrics_csvfile:
                         metrics_csvfile.write(f"{train_loss},{val_loss}\n")
                     mlflow.log_metric("train_loss", train_loss)
                     mlflow.log_metric("val_loss", val_loss)
                     print(train_loss,val_loss)
+
+                    if val_loss < best_val_loss:
+                        torch.save({
+                            'optimizer': optimizer.state_dict(),
+                            'model': model.state_dict(),
+                            'last_epoch':e
+                        }, training_folder/f"checkpoint_fold{i}.pth")
+                        best_val_loss = val_loss
+                        best_epoch = e
+                    else:
+                        if e - best_epoch > patience:
+                            logger.info("Early stopped, best epoch:", best_epoch)
+                            break
 
                 logger.success(f"Completed fold {i}")
     
