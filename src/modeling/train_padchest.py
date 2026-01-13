@@ -209,8 +209,12 @@ def main(
 
                     with open(training_folder/f"training_loss_fold{i}.csv","a") as metrics_csvfile:
                         metrics_csvfile.write(f"{train_loss},{val_loss}\n")
+                    
                     mlflow.log_metric("train_loss", train_loss)
+                    mlflow.log_metric("train_auc", auc_train)
                     mlflow.log_metric("val_loss", val_loss)
+                    mlflow.log_metric("val_auc", auc_val)
+
                     print(train_loss,val_loss)
 
                     if val_loss < best_val_loss:
@@ -221,6 +225,8 @@ def main(
                         }, training_folder/f"checkpoint_fold{i}.pth")
                         best_val_loss = val_loss
                         best_epoch = e
+                        mlflow.log_metric("best_epoch", best_epoch)
+
                     else:
                         if e - best_epoch > patience:
                             logger.info("Early stopped, best epoch:", best_epoch)
