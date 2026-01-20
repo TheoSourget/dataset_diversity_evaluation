@@ -17,4 +17,5 @@ rouge-score
 tensorflow==2.19.1
 FlagEmbedding
 tf-keras
+opencv-python
 -e .
