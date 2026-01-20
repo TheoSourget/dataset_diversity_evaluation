@@ -121,6 +121,7 @@ def main(
     :param weights: Path to the weights to use, if "DEFAULT" use the imagenet-1k pretrained weights, otherwise load the weights from the given path
     :type weights: str\n
     """
+    print(train)
     model = densenet121(weights='DEFAULT')
     kernel_count = model.classifier.in_features
     model.classifier = torch.nn.Sequential(
@@ -167,4 +168,4 @@ def main(
         pass
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
