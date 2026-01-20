@@ -49,8 +49,7 @@ def process_morpho_mnist(split):
 
 def padchest_filter_and_process_labels():
     base_df = pd.read_csv(f'{RAW_DATA_DIR}/padchest/labels.csv',index_col=0)
-    invalid_images = pd.read_csv(f'{RAW_DATA_DIR}/padchest/invalid_images.csv', header=None, index_col=0)
-    
+        
     # Excluding NaNs in the labels
     df_no_nan = base_df[~base_df["Labels"].isna()]
     # Excluding labels including the 'suboptimal study' label
