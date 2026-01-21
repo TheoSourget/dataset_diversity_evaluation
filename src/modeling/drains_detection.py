@@ -196,7 +196,8 @@ def main(
         padchest_test_loader = DataLoader(padchest_test_dataset, batch_size=32)
         drains_preds = get_padchest_preds(model,padchest_test_loader)
         padchest_test_dataset.labels_csv["drains_proba"] = drains_preds.flatten()
-        padchest_train_dataset.labels_csv.to_csv(f"{PROCESSED_DATA_DIR}/padchest/test_labels_drains.csv",sep=",")
+        padchest_test_dataset.labels_csv.to_csv(f"{PROCESSED_DATA_DIR}/padchest/test_labels_drains.csv",sep=",")
+        
         logger.success("DRAINS DETECION COMPLETED")
 
 if __name__ == "__main__":
