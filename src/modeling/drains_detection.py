@@ -158,7 +158,7 @@ def main(
                     print("Train metrics:",train_loss,train_metric)
                     run.log_metric("train_loss", train_loss,epoch)
                     run.log_metric("train_auc", train_metric,epoch)
-                    torch.save(model.state_dict(),f'./models/drains_detection_model.pt')
+                    torch.save(model.state_dict(),f'{MODELS_DIR}/drains_detection_model.pt')
                 test_auc = test_model(model,test_dataloader)
                 run.log_metric("test_auc", test_auc,epoch)
                 print("Test AUC:",test_auc)
