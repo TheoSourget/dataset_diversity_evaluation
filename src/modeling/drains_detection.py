@@ -22,6 +22,8 @@ from sklearn.model_selection import GroupShuffleSplit
 from tqdm import tqdm
 from loguru import logger
 
+from src.data.padchest_pytorch import get_padchest_datasets_to_evaluate,get_padchest_test
+
 import radt
 import mlflow
 
@@ -96,6 +98,21 @@ def test_model(model,valid_dataloader):
         auc_score=roc_auc_score(lst_labels,lst_probas)
     return auc_score
 
+def get_padchest_preds(model,padchest_dataloader):
+    model.to(DEVICE)
+    model.eval()
+    lst_probas = []
+    with torch.no_grad():
+        for i, data in enumerate(padchest_dataloader, 0):
+            inputs = data[0]
+            inputs = inputs.float().to(DEVICE)
+            outputs = model(inputs)
+            output_sigmoid = sigmoid(outputs)
+            lst_probas.extend(output_sigmoid.cpu().detach().numpy())
+        lst_probas = np.array(lst_probas)
+    return lst_probas
+
+
 @app.command()
 def main(
     train: Annotated[bool, typer.Option(help=("--train to train model on CXR14, --no-train to apply it on PadChest data"))],
@@ -121,7 +138,6 @@ def main(
     :param weights: Path to the weights to use, if "DEFAULT" use the imagenet-1k pretrained weights, otherwise load the weights from the given path
     :type weights: str\n
     """
-    print(train)
     model = densenet121(weights='DEFAULT')
     kernel_count = model.classifier.in_features
     model.classifier = torch.nn.Sequential(
@@ -131,10 +147,10 @@ def main(
     if weights != "DEFAULT":
         model.load_state_dict(torch.load(weights,map_location=torch.device('cpu')))
     model.to(DEVICE)
-    df_tubes = pd.read_csv(f"{data_path}/processed_labels.csv")
    
     if train:
         logger.info("START TRAINING")
+        df_tubes = pd.read_csv(f"{data_path}/processed_labels.csv")
         criterion = torch.nn.BCEWithLogitsLoss()
         criterion.requires_grad = True
         optimizer = optim.Adam(model.parameters(),lr=lr)
@@ -161,11 +177,27 @@ def main(
                     torch.save(model.state_dict(),f'{MODELS_DIR}/drains_detection_model.pt')
                 test_auc = test_model(model,test_dataloader)
                 run.log_metric("test_auc", test_auc,epoch)
-                print("Test AUC:",test_auc)
+                logger.info("Test AUC:",test_auc)
+        logger.success("TRAINING COMPLETED")
     else:
         #Apply to PadChest data
-        #TODO
-        pass
+        logger.info("START DRAINS DETECION")
+
+        logger.info("For train split")
+        lst_train_datasets = {dataset.dataset_name:dataset for dataset in get_padchest_datasets_to_evaluate()}
+        padchest_train_dataset = lst_train_datasets.get("All")
+        padchest_train_loader = DataLoader(padchest_train_dataset, batch_size=32)
+        drains_preds = get_padchest_preds(model,padchest_train_loader)
+        padchest_train_dataset.labels_csv["drains_proba"] = drains_preds.flatten()
+        padchest_train_dataset.labels_csv.to_csv(f"{PROCESSED_DATA_DIR}/padchest/train_labels_drains.csv",sep=",")
+
+        logger.info("For test split")
+        padchest_test_dataset = get_padchest_test()
+        padchest_test_loader = DataLoader(padchest_test_dataset, batch_size=32)
+        drains_preds = get_padchest_preds(model,padchest_test_loader)
+        padchest_test_dataset.labels_csv["drains_proba"] = drains_preds.flatten()
+        padchest_train_dataset.labels_csv.to_csv(f"{PROCESSED_DATA_DIR}/padchest/test_labels_drains.csv",sep=",")
+        logger.success("DRAINS DETECION COMPLETED")
 
 if __name__ == "__main__":
     typer.run(main)
