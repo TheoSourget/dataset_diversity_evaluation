@@ -3,7 +3,7 @@ from src.morphomnist.skeleton import num_neighbours
 import torch
 from torchvision.io import decode_image, ImageReadMode
 from torch.utils.data import Dataset,ConcatDataset
-from src.morphomnist import morpho
+from src.morphomnist import morpho,measure
 import numpy as np
 from copy import deepcopy
 
@@ -25,7 +25,7 @@ class MorphoMNISTDataset(Dataset):
         self.dataset_name = dataset_name
         self.as_tensor = as_tensor
         self.morpho_transforms = morpho_transforms
-        self.labels_csv = pd.read_csv(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/labels.csv").head(100)
+        self.labels_csv = pd.read_csv(f"{PROCESSED_DATA_DIR}/morphomnist/{split}/labels.csv")
         self.labels_csv["dataset_name"] = dataset_name
         self.labels_csv["img_path"] = self.labels_csv["img_id"].apply(lambda img_id: PROCESSED_DATA_DIR / f"morphomnist/{split}/{img_id}")
 
@@ -63,13 +63,13 @@ class MorphoMNISTDataset(Dataset):
         text = f"Image of a handwritten {self.dataset_name} {img_row['label']}"
         #Get a copy of the image so that potential later transformations are not applied to the original image
         image = deepcopy(self.imgs[idx])
-
+        morphometrics = measure.measure_image(image[0,:,:],verbose=False)
         if self.as_tensor:
             #Return image and label as Tensor
-            return torch.Tensor(image), text, torch.tensor(img_row["label"]),img_row["img_id"],self.dataset_name
+            return torch.Tensor(image), text, torch.tensor(img_row["label"]),img_row["img_id"],np.array(morphometrics),self.dataset_name
         else:
             #Return image as numpy array and label as str
-            return image,text,img_row["label"],img_row["img_id"],self.dataset_name
+            return image,text,img_row["label"],img_row["img_id"],np.array(morphometrics),self.dataset_name
 
 
 def get_thinning_datasets():

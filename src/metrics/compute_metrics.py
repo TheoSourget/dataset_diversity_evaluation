@@ -25,6 +25,7 @@ from scipy.stats import entropy
 from scipy.linalg import sqrtm
 from vendi_score import vendi
 from skimage.feature import hog
+from sklearn.metrics.pairwise import cosine_similarity
 
 from FlagEmbedding import BGEM3FlagModel
 from rouge_score import rouge_scorer
@@ -306,6 +307,11 @@ def semantic_similarity(dataset):
     return torch.mean(similarity).item()
 
 
+def metadata_diversity(dataset):
+    metadatas = [item[4] for item in dataset]
+    similarities = cosine_similarity(metadatas,metadatas)
+    return similarities.mean()
+
 def get_confidence_interval(values,alpha=5.0):
     alpha = 5.0
     lower_p = alpha / 2.0
@@ -327,6 +333,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
     lst_vs_inception = []
     lst_rougeL = []
     lst_semantic_similarity = []
+    lst_metadata_similarity = []
 
     for dataset in tqdm(lst_train_datasets):
         logger.info(f"Computing metrics on {dataset.dataset_name}")
@@ -352,6 +359,9 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         logger.info("Semantic similarity")
         semantic_similarity_dataset = semantic_similarity(dataset)
 
+        logger.info("Metadata similarity")
+        metadata_similarity_dataset = metadata_diversity(dataset)
+
         #List of metrics value on bootstrap version of the dataset
         lst_bootstrap_is = []
         lst_bootstrap_fid = []
@@ -360,6 +370,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         lst_bootstrap_vs_inception = []
         lst_bootstrap_rougeL = []
         lst_bootstrap_semantic_sim = []
+        lst_bootstrap_metadata_sim = []
 
         logger.info(f"Computing bootstrap metrics on {dataset}")
         for i in range(nb_bootstrap):
@@ -386,6 +397,9 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
             logger.info("Semantic similarity")
             semantic_similarity_bootstrap = semantic_similarity(d_bootstrap)
 
+            logger.info("Metadata similarity")
+            metadata_similarity_bootstrap = metadata_diversity(d_bootstrap)
+
             lst_bootstrap_is.append(is_bootstrap)
             lst_bootstrap_fid.append(fid_bootstrap)
             lst_bootstrap_vs_pix.append(vs_pix_bootstrap)
@@ -393,6 +407,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
             lst_bootstrap_vs_inception.append(vs_inception_bootstrap)
             lst_bootstrap_rougeL.append(rougeL_bootstrap)
             lst_bootstrap_semantic_sim.append(semantic_similarity_bootstrap)
+            lst_bootstrap_metadata_sim.append(metadata_similarity_bootstrap)
 
         #Compute the 95% confidence interval from the boostrap values
         l_is,u_is = get_confidence_interval(lst_bootstrap_is)
@@ -402,6 +417,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         l_vs_inception,u_vs_inception = get_confidence_interval(lst_bootstrap_vs_inception)
         l_rougeL,u_rougeL = get_confidence_interval(lst_bootstrap_rougeL)
         l_semantic_sim,u_semantic_sim = get_confidence_interval(lst_bootstrap_semantic_sim)
+        l_metadata_sim,u_metadata_sim = get_confidence_interval(lst_bootstrap_metadata_sim)
 
         #Add the metric and CI
         lst_is.append(f"{is_dataset}_{l_is}_{u_is}")
@@ -411,6 +427,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         lst_vs_inception.append(f"{vs_inception_dataset}_{l_vs_inception}_{u_vs_inception}")
         lst_rougeL.append(f"{rougeL_dataset}_{l_rougeL}_{u_rougeL}")
         lst_semantic_similarity.append(f"{semantic_similarity_dataset}_{l_semantic_sim}_{u_semantic_sim}")
+        lst_metadata_similarity.append(f"{metadata_similarity_dataset}_{l_metadata_sim}_{u_metadata_sim}")
 
     #Write the result in the csv file
     with open(res_file_path,"a+") as metrics_csvfile:
@@ -421,6 +438,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         metrics_csvfile.write(f"\nvs_inception,{','.join([str(vs_d) for vs_d in lst_vs_inception])}")    
         metrics_csvfile.write(f"\nrougeL,{','.join([str(rougel_d) for rougel_d in lst_rougeL])}")    
         metrics_csvfile.write(f"\nsemantic_similarity,{','.join([str(semantic_sim_d) for semantic_sim_d in lst_semantic_similarity])}")    
+        metrics_csvfile.write(f"\nmetadata_similarity,{','.join([str(semantic_sim_d) for semantic_sim_d in lst_metadata_similarity])}")    
 
 @app.command()
 def main(dataset:str):
@@ -456,7 +474,7 @@ def main(dataset:str):
         # ---- Multiple scenarios ----
         logger.info("Computing diversity metrics for multiple morpho scenarios...")
         lst_train_datasets = get_perturb_dataset()
-        res_file_path = INTERIM_DATA_DIR / "diversity_metrics_text.csv"
+        res_file_path = INTERIM_DATA_DIR / "diversity_metrics_metadata.csv"
         evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
         logger.success("Done.")
         # -----------------------------------------
