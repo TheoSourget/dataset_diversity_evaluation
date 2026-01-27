@@ -12,7 +12,6 @@ import torch.optim as optim
 
 from torch.utils.data import DataLoader
 from sklearn.model_selection import StratifiedKFold
-from torch.utils.data import ConcatDataset
 from copy import deepcopy
 
 from torchvision.models import resnet50
@@ -77,7 +76,6 @@ def valid_epoch(model,criterion,dataloader):
             inputs, texts, labels, img_ids, dataset_names = data
             inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
 
-            # forward + backward
             outputs = model(inputs)
             output_sigmoid = sigmoid(outputs).flatten()
             loss = criterion(output_sigmoid, labels)
@@ -122,7 +120,6 @@ def main(
     batch_size: int = 32,
     lr: float = 1e-4,
     patience: int = 5,
-    checkpoint_path: Path = None
 ):
     lst_train_datasets = {dataset.dataset_name:dataset for dataset in get_padchest_datasets_to_evaluate()}
     
@@ -183,7 +180,7 @@ def main(
                 optimizer = optim.Adam(model.parameters(),lr=lr)
 
                 datamaps_info = {}
-                best_val_loss = np.inf
+                best_val_auc = 0
                 best_epoch = 0
                 #Training/Evaluation loop
                 for e in tqdm(range(epochs)):
@@ -217,16 +214,16 @@ def main(
 
                     print(train_loss,val_loss)
 
-                    if val_loss < best_val_loss:
+                    if auc_val > best_val_auc:
                         torch.save({
                             'optimizer': optimizer.state_dict(),
                             'model': model.state_dict(),
-                            'last_epoch':e
+                            'epoch':e
                         }, training_folder/f"checkpoint_fold{i}.pth")
-                        best_val_loss = val_loss
+                        best_val_auc = auc_val
                         best_epoch = e
                         mlflow.log_metric("best_epoch", best_epoch)
-
+                        mlflow.log_metric("best_epoch_auc",auc_val)
                     else:
                         if e - best_epoch > patience:
                             logger.info("Early stopped, best epoch:", best_epoch)
