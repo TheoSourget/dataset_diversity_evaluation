@@ -33,11 +33,38 @@ class PadchestDataset(Dataset):
         image = read_image(img_path,ImageReadMode.RGB)
         image = image / image.max()
         
+        try: 
+            age=int(str(img_row["StudyDate_DICOM"])[:4])-int(img_row["PatientBirth"])/105 #Normalized age (105 is the highest age in the dataset)
+        except:
+            age=-1
+
+        sex=img_row["PatientSex_DICOM"]
+        if sex == "F":
+            sex=0
+        elif sex =="M":
+            sex=1
+        else:
+            sex=-1
+        
+
+        projection=img_row["Projection"]
+        if not projection:
+            projection=-1
+        elif "AP" in projection:
+            projection=0
+        else: 
+            projection=1
+        
+        scanner = 0 if img_row["Manufacturer_DICOM"] == "ImagingDynamicsCompanyLtd" else 1
+        
+        metadata=np.array([age,sex,projection,scanner])
+        
+
         label = img_row["label"]
         if self.as_tensor:
-            return torch.Tensor(image), img_row["Report"], torch.tensor(label), img_row["ImageID"], self.dataset_name
+            return torch.Tensor(image), img_row["Report"], torch.tensor(label), img_row["ImageID"], metadata, self.dataset_name
         else:
-            return image.numpy(), img_row["Report"], label, img_row["ImageID"], self.dataset_name
+            return image.numpy(), img_row["Report"], label, img_row["ImageID"], metadata, self.dataset_name
 
     def get_image_id(self,idx):
         img_path = self.labels_csv.iloc[idx]["img_paths"]

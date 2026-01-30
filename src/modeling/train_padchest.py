@@ -41,7 +41,7 @@ def training_epoch(model,criterion,optimizer,train_dataloader):
     lst_labels = []
     lst_probas = []
     for i, data in enumerate(train_dataloader, 0):
-        inputs, texts, labels, img_ids, dataset_names = data
+        inputs, texts, labels, img_ids, metadata, dataset_names = data
         inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
 
         # zero the parameter gradients
@@ -49,7 +49,7 @@ def training_epoch(model,criterion,optimizer,train_dataloader):
         # forward + backward + optimize
         outputs = model(inputs)
         output_sigmoid = sigmoid(outputs).flatten()
-        loss = criterion(output_sigmoid, labels)
+        loss = criterion(outputs.flatten(), labels)
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
@@ -73,12 +73,12 @@ def valid_epoch(model,criterion,dataloader):
     lst_probas = []
     with torch.no_grad():
         for i, data in enumerate(dataloader, 0):
-            inputs, texts, labels, img_ids, dataset_names = data
+            inputs, texts, labels, img_ids, metadata, dataset_names = data
             inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
 
             outputs = model(inputs)
             output_sigmoid = sigmoid(outputs).flatten()
-            loss = criterion(output_sigmoid, labels)
+            loss = criterion(outputs.flatten(), labels)
             val_loss += loss.item()
             
             lst_labels.extend(labels.cpu().detach().numpy())
@@ -101,7 +101,7 @@ def compute_datamap_info(model,dataloader):
     lst_dataset_names = []
     with torch.no_grad():
         for i, data in enumerate(dataloader, 0):
-            inputs, texts, labels, img_ids, dataset_names = data
+            inputs, texts, labels, img_ids, metadata, dataset_names = data
             inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
             
             # forward + backward
@@ -167,6 +167,7 @@ def main(
                 
                 val_fold = deepcopy(train_dataset)
                 val_fold.labels_csv = val_fold.labels_csv.iloc[val_index].reset_index(drop=True)
+
                 
                 #Create the Dataloaders
                 train_dataloader = DataLoader(train_fold, batch_size=batch_size)
@@ -175,8 +176,10 @@ def main(
                 #Instanciate the model, criterion and optimizer
                 model = resnet50()
                 model.fc = torch.nn.Linear(model.fc.in_features, 1)
-
-                criterion = torch.nn.BCELoss()
+                
+                #Define weight use to deal with imbalance, equal to number of positive samples/number of negative samples following pytorch documentation
+                pos_weight = len(train_fold.labels_csv[train_fold.labels_csv["label"] == 0])/len(train_fold.labels_csv[train_fold.labels_csv["label"] == 1])
+                criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight))
                 optimizer = optim.Adam(model.parameters(),lr=lr)
 
                 datamaps_info = {}
