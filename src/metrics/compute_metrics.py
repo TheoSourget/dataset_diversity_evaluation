@@ -26,6 +26,7 @@ from scipy.linalg import sqrtm
 from vendi_score import vendi
 from skimage.feature import hog
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import StandardScaler
 
 from FlagEmbedding import BGEM3FlagModel
 from rouge_score import rouge_scorer
@@ -309,6 +310,8 @@ def semantic_similarity(dataset):
 
 def metadata_diversity(dataset):
     metadatas = [item[4] for item in dataset]
+    scaler = StandardScaler()
+    metadatas = scaler.fit_transform(metadatas)
     similarities = cosine_similarity(metadatas,metadatas)
     return similarities.mean()
 
