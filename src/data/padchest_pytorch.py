@@ -34,7 +34,7 @@ class PadchestDataset(Dataset):
         image = image / image.max()
         
         try: 
-            age=int(str(img_row["StudyDate_DICOM"])[:4])-int(img_row["PatientBirth"])/105 #Normalized age (105 is the highest age in the dataset)
+            age=(int(str(img_row["StudyDate_DICOM"])[:4])-int(img_row["PatientBirth"]))/105 #Normalized age (105 is the highest age in the dataset)
         except:
             age=-1
 
