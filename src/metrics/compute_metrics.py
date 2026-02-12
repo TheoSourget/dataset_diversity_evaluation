@@ -289,8 +289,9 @@ def rougeL(dataset,nb_resampling):
         
         #Add the mean rougeL score of the current downsampled dataset
         lst_RougeL.append(np.mean(rouge_scores))
+    
     #Return the mean over all resampling
-    return np.mean(lst_RougeL)
+    return np.mean(lst_RougeL),np.std(lst_RougeL)
 
 
 def semantic_similarity(dataset):
@@ -310,8 +311,6 @@ def semantic_similarity(dataset):
 
 def metadata_diversity(dataset):
     metadatas = [item[4] for item in dataset]
-    scaler = StandardScaler()
-    metadatas = scaler.fit_transform(metadatas)
     similarities = cosine_similarity(metadatas,metadatas)
     return similarities.mean()
 
@@ -357,7 +356,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         vs_inception_dataset = vendi_score(dataset,1,vs_inception_features)
 
         logger.info("RougeL")
-        rougeL_dataset = rougeL(dataset,5)
+        rougeL_dataset,rougeL_std = rougeL(dataset,5)
 
         logger.info("Semantic similarity")
         semantic_similarity_dataset = semantic_similarity(dataset)
@@ -371,7 +370,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         lst_bootstrap_vs_pix = []
         lst_bootstrap_vs_hog = []
         lst_bootstrap_vs_inception = []
-        lst_bootstrap_rougeL = []
+        # lst_bootstrap_rougeL = []
         lst_bootstrap_semantic_sim = []
         lst_bootstrap_metadata_sim = []
 
@@ -394,8 +393,8 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
             logger.info("VS Inception")
             vs_inception_bootstrap = vendi_score(d_bootstrap,5,vs_inception_features)
 
-            logger.info("RougeL")
-            rougeL_bootstrap = rougeL(d_bootstrap,5)
+            # logger.info("RougeL")
+            # rougeL_bootstrap = rougeL(d_bootstrap,5)
 
             logger.info("Semantic similarity")
             semantic_similarity_bootstrap = semantic_similarity(d_bootstrap)
@@ -408,7 +407,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
             lst_bootstrap_vs_pix.append(vs_pix_bootstrap)
             lst_bootstrap_vs_hog.append(vs_hog_bootstrap)
             lst_bootstrap_vs_inception.append(vs_inception_bootstrap)
-            lst_bootstrap_rougeL.append(rougeL_bootstrap)
+            # lst_bootstrap_rougeL.append(rougeL_bootstrap)
             lst_bootstrap_semantic_sim.append(semantic_similarity_bootstrap)
             lst_bootstrap_metadata_sim.append(metadata_similarity_bootstrap)
 
@@ -418,7 +417,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         l_vs_pix,u_vs_pix = get_confidence_interval(lst_bootstrap_vs_pix)
         l_vs_hog,u_vs_hog = get_confidence_interval(lst_bootstrap_vs_hog)
         l_vs_inception,u_vs_inception = get_confidence_interval(lst_bootstrap_vs_inception)
-        l_rougeL,u_rougeL = get_confidence_interval(lst_bootstrap_rougeL)
+        # l_rougeL,u_rougeL = get_confidence_interval(lst_bootstrap_rougeL)
         l_semantic_sim,u_semantic_sim = get_confidence_interval(lst_bootstrap_semantic_sim)
         l_metadata_sim,u_metadata_sim = get_confidence_interval(lst_bootstrap_metadata_sim)
 
@@ -428,7 +427,7 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         lst_vs_pix.append(f"{vs_pix_dataset}_{l_vs_pix}_{u_vs_pix}")
         lst_vs_hog.append(f"{vs_hog_dataset}_{l_vs_hog}_{u_vs_hog}")
         lst_vs_inception.append(f"{vs_inception_dataset}_{l_vs_inception}_{u_vs_inception}")
-        lst_rougeL.append(f"{rougeL_dataset}_{l_rougeL}_{u_rougeL}")
+        lst_rougeL.append(f"{rougeL_dataset}_{rougeL_std}")
         lst_semantic_similarity.append(f"{semantic_similarity_dataset}_{l_semantic_sim}_{u_semantic_sim}")
         lst_metadata_similarity.append(f"{metadata_similarity_dataset}_{l_metadata_sim}_{u_metadata_sim}")
 
