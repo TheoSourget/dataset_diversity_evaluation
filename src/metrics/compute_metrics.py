@@ -347,13 +347,13 @@ def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=
         fid_dataset = fid(dataset,ref_dataset,32,True,False)
 
         logger.info("VS pix")
-        vs_pix_dataset = vendi_score(dataset,1,vs_pixels)
+        vs_pix_dataset = vendi_score(dataset,5,vs_pixels)
 
         logger.info("VS HOG")
-        vs_hog_dataset = vendi_score(dataset,1,vs_hog)
+        vs_hog_dataset = vendi_score(dataset,5,vs_hog)
 
         logger.info("VS Inception")
-        vs_inception_dataset = vendi_score(dataset,1,vs_inception_features)
+        vs_inception_dataset = vendi_score(dataset,5,vs_inception_features)
 
         logger.info("RougeL")
         rougeL_dataset,rougeL_std = rougeL(dataset,5)
@@ -488,7 +488,7 @@ def main(dataset:str):
         logger.info("Computing diversity metrics for multiple cxr scenarios...")
         lst_train_datasets = get_padchest_datasets_to_evaluate()
         res_file_path = INTERIM_DATA_DIR / "diversity_metrics_padchest.csv"
-        evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
+        evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=10)
         logger.success("Done.")
         # -----------------------------------------
 
