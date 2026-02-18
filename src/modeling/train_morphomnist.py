@@ -39,7 +39,7 @@ def training_epoch(model,criterion,optimizer,train_dataloader):
     lst_labels = []
     lst_probas = []
     for i, data in enumerate(train_dataloader, 0):
-        inputs, texts, labels, img_ids, dataset_names = data
+        inputs, texts, labels, img_ids, metadata, dataset_names = data
         inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
 
         # zero the parameter gradients
@@ -71,7 +71,7 @@ def valid_epoch(model,criterion,dataloader):
     lst_probas = []
     with torch.no_grad():
         for i, data in enumerate(dataloader, 0):
-            inputs, texts, labels, img_ids, dataset_names = data
+            inputs, texts, labels, img_ids, metadata, dataset_names = data
             inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
 
             # forward + backward
@@ -100,7 +100,7 @@ def compute_datamap_info(model,dataloader):
     lst_dataset_names = []
     with torch.no_grad():
         for i, data in enumerate(dataloader, 0):
-            inputs, texts, labels, img_ids, dataset_names = data
+            inputs, texts, labels, img_ids, metadata, dataset_names = data
             inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
             
             # forward + backward
@@ -114,11 +114,10 @@ def compute_datamap_info(model,dataloader):
 
 @app.command()
 def main(
-    dataset_config: str = "plain",
     epochs: int = 5,
     batch_size: int = 32,
     lr: float = 1e-4,
-    checkpoint_path: Path = None
+    patience: int = 5,
 ):
     lst_train_datasets = {dataset.dataset_name:dataset for dataset in get_perturb_dataset()}
     
@@ -203,6 +202,9 @@ def main(
             optimizer = optim.Adam(model.parameters(),lr=lr)
 
             datamaps_info = {}
+            best_val_auc = 0
+            best_epoch = 0
+
             #Training/Evaluation loop
             for e in tqdm(range(epochs)):
                 train_loss,aucs_val = training_epoch(model,criterion,optimizer,train_dataloader)
@@ -223,12 +225,19 @@ def main(
                         datamaps_info[sample_id]["proba_label"].append(float(lst_probas[j][int(lst_labels[j])]))
                 
                 pd.DataFrame.from_dict(datamaps_info, orient='index').to_csv(training_folder/f"datamaps_values_fold{i}.csv")
-
-                torch.save({
-                    'optimizer': optimizer.state_dict(),
-                    'model': model.state_dict(),
-                    'last_epoch':e
-                }, training_folder/f"checkpoint_fold{i}.pth")
+                
+                if np.mean(aucs_val) > best_val_auc:
+                    torch.save({
+                        'optimizer': optimizer.state_dict(),
+                        'model': model.state_dict(),
+                        'epoch':e
+                    }, training_folder/f"checkpoint_fold{i}.pth")
+                    best_val_auc = np.mean(aucs_val)
+                    best_epoch = e
+                else:
+                    if e - best_epoch > patience:
+                        logger.info("Early stopped, best epoch:", best_epoch)
+                        break
 
                 with open(training_folder/f"training_loss_fold{i}.csv","a") as metrics_csvfile:
                     metrics_csvfile.write(f"{train_loss},{val_loss}\n")
