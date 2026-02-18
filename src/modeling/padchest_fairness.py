@@ -50,7 +50,7 @@ def main(
             df_predictions_imagingdynamics = df_predictions[df_predictions["Manufacturer_DICOM"]=="ImagingDynamicsCompanyLtd"]
             imagingdynamics_aucs.append(roc_auc_score(df_predictions_imagingdynamics["label"],df_predictions_imagingdynamics["proba_label"]))
         with open(PROCESSED_DATA_DIR/f"padchest_fairness_aucs.csv","a+") as perf_file:
-            perf_file.write(f"\n{model_name},{np.mean(male_aucs)},{np.mean(male_aucs)}")
+            perf_file.write(f"\n{model_name},{np.mean(male_aucs)},{np.std(male_aucs)}")
             perf_file.write(f",{np.mean(female_aucs)},{np.std(female_aucs)}")
             perf_file.write(f",{np.mean(philips_aucs)},{np.std(philips_aucs)}")
             perf_file.write(f",{np.mean(imagingdynamics_aucs)},{np.std(imagingdynamics_aucs)}")
