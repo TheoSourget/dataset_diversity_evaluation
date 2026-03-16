@@ -123,7 +123,7 @@ You can then use [predict_morphomnist.py](https://github.com/TheoSourget/dataset
 python src/modeling/predict_padchest.py
 ```
 ## Plots
-To reproduce the figures run the command:
+To reproduce the figures run the command (work in progress):
 ```sh
 make visualisations
 ```
