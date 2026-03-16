@@ -148,13 +148,13 @@ def process_CXR14():
 
 @app.command()
 def main():
-    # logger.info("Processing train MorphoMNIST dataset...")
-    # process_morpho_mnist(split="train")
-    # logger.success("Processing train MorphoMNIST complete.")
+    logger.info("Processing train MorphoMNIST dataset...")
+    process_morpho_mnist(split="train")
+    logger.success("Processing train MorphoMNIST complete.")
 
-    # logger.info("Processing test MorphoMNIST dataset...")
-    # process_morpho_mnist(split="test")
-    # logger.success("Processing test MorphoMNIST complete.")
+    logger.info("Processing test MorphoMNIST dataset...")
+    process_morpho_mnist(split="test")
+    logger.success("Processing test MorphoMNIST complete.")
 
     logger.info("Processing PadChest dataset...")
     process_padchest()

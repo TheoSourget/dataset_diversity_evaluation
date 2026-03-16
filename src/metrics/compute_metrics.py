@@ -11,7 +11,7 @@ from src.data.morphomnist_pytorch import MorphoMNISTDataset,get_thickening_datas
 from src.morphomnist import perturb
 from src.data.padchest_pytorch import PadchestDataset,get_padchest_datasets_to_evaluate,get_padchest_test
 
-from src.modeling.utils import stratified_downsampling_dataset, bootstrap_resampling
+from src.data.utils import stratified_downsampling_dataset, bootstrap_resampling
 import pandas as pd
 import numpy as np
 import torch
@@ -458,7 +458,7 @@ def main(dataset:str):
         # ---- Multiple scenarios ----
         logger.info("Computing diversity metrics for multiple morpho scenarios...")
         lst_train_datasets = get_perturb_dataset()
-        res_file_path = INTERIM_DATA_DIR / "diversity_metrics_metadata.csv"
+        res_file_path = INTERIM_DATA_DIR / "diversity_metrics_morpho.csv"
         evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=10)
         logger.success("Done.")
         # -----------------------------------------
