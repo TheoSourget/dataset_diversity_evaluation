@@ -56,7 +56,7 @@ mpl.rcParams.update(base_params_plots)
 app = typer.Typer()
 
 #FIGURES
-def metrics_ranking_correlation_matrix(csv_path):
+def metrics_ranking_correlation_matrix(metrics_path,auc_path):
     metric_name_to_table = {
         "inception_score":"IS",
         "fid":"FID",
@@ -65,20 +65,21 @@ def metrics_ranking_correlation_matrix(csv_path):
         "vs_inception":"VS_Inception",
         "rougeL":"RougeL",
         "semantic_similarity":"Semantic",
+        "metadata_similiarity":"Metadata",
         "AUC":"AUC",
-
     }
     params_plots = {
         "axes.grid": False,
         "axes.facecolor": "#ffffff",
     }
     mpl.rcParams.update(params_plots)
-    ascending = [False,True,False,False,False,True,True,False]
+    ascending = [False,True,False,False,False,True,True,True,False]
+
     #Load the csv with metrics values
-    csv_metrics = pd.read_csv(csv_path,index_col="metric_name")
+    csv_metrics = pd.read_csv(metrics_path,index_col="metric_name")
     csv_metrics = csv_metrics.map(lambda x: float(x.split("_")[0]))
     
-    auc_df = pd.read_csv(PROCESSED_DATA_DIR/"morphomnist_aucs.csv",index_col="model")
+    auc_df = pd.read_csv(auc_path,index_col="model")
     csv_metrics.loc["AUC"] = auc_df["mean_auc"]
     
     #For each row compute the ranking
@@ -89,7 +90,7 @@ def metrics_ranking_correlation_matrix(csv_path):
     # rankings = csv_metrics.rank(axis = 1, ).astype(int).to_numpy()
     rankings = np.array(rankings)
     fig = plt.figure()
-    sns.heatmap(rankings,annot=True,vmin=1,vmax=9,xticklabels=csv_metrics.columns,yticklabels=metric_name_to_table.values(),cmap="coolwarm")
+    sns.heatmap(rankings,annot=True,vmin=1,vmax=5,xticklabels=csv_metrics.columns,yticklabels=metric_name_to_table.values(),cmap="coolwarm")
     plt.title(f"Ranking of datasets per metric")
     plt.tight_layout()
 
@@ -118,7 +119,6 @@ def evolution_metrics(csv_path,parameter_name):
         "vs_pixel":"Vendi Score (pixel values) +",
         "vs_hog":"Vendi Score (HoG) +",
         "vs_inception":"Vendi Score (Inception) +"
-
     }
     #Load the csv with metrics values
     csv_metrics = pd.read_csv(csv_path,index_col="metric_name").T
@@ -140,7 +140,7 @@ def evolution_metrics(csv_path,parameter_name):
         plt.ylabel(metric_name_to_table.get(metric_name,metric_name))
 
         plt.xticks(x)
-        plt.title(f"Evolution of the {metric_name} when varying the {parameter_name} parameter")
+        plt.title(f"Evolution of the {metric_name} when varying the {parameter_name} parameter",fontsize=15)
         fig.tight_layout()
         fig.savefig(path_figures / f"{metric_name}.png")
 
@@ -152,11 +152,16 @@ def datamap(pred_path,save_path,caption,model_name):
         "swelling": 3,
         "fracture": 4,
     }
+    
+    #Get the probabilities across training epochs
     df_pred = pd.read_csv(pred_path)
     df_pred["proba_label"] = df_pred["proba_label"].apply(lambda x: np.array(ast.literal_eval(x)))
-    preds = np.array(df_pred["proba_label"].to_list())
+    preds = np.array(df_pred["proba_label"].to_list())[:,:-6] #Remove end of the array made of the early stopping patience
+
+    #Compute confidence (mean probability) and variability (standard deviation) for all samples
     confidence = np.mean(preds,axis=1)
     variability = np.std(preds,axis=1)
+    
     fig = sns.jointplot(x=variability, y=confidence, hue=df_pred["dataset_name"], kind='scatter', alpha=0.6, marker='o', s=40, hue_order=grp_id.keys(), joint_kws=dict(rasterized=True))
     bb = lambda c: dict(boxstyle="round,pad=0.3", ec=c, lw=2, fc="white")
     an1 = plt.annotate("ambiguous", xy=(0.9, 0.5), xycoords="axes fraction", fontsize=15, color='black',
@@ -168,8 +173,8 @@ def datamap(pred_path,save_path,caption,model_name):
     fig.ax_joint.legend()
     plt.xlim((0,1))
     plt.ylim((0,1))
-    plt.xlabel(f"variability")
-    plt.ylabel(f"confidence")
+    plt.xlabel(f"Variability")
+    plt.ylabel(f"Confidence")
     plt.title(caption)
     plt.tight_layout()
 
@@ -180,22 +185,24 @@ def datamap(pred_path,save_path,caption,model_name):
 
     for ds_perturbation in grp_id:
         df_ds = df_pred[df_pred["dataset_name"]==ds_perturbation]
-        preds = np.array(df_ds["proba_label"].to_list())
+        preds = np.array(df_ds["proba_label"].to_list())[:,:-6] #Remove end of the array made of the early stopping patience
         confidence = np.mean(preds,axis=1)
         variability = np.std(preds,axis=1)
         nbins = 100
         k = kde(np.vstack([variability, confidence]))
         xi, yi = np.mgrid[0:1:nbins*1j, 0:1:nbins*1j]
 
-        #Use the square root to 
+        #Use the square root for a better color range 
         zi = np.sqrt(k(np.vstack([xi.flatten(), yi.flatten()])))
         fig = plt.figure()
         plt.pcolormesh(xi, yi, zi.reshape(xi.shape), shading='gouraud',cmap=cm.Blues)
-        plt.title(f"Density plot of datamap for {ds_perturbation} images with model trained on {model_name.replace('_',' and ')} images")
+        plt.title(f"{ds_perturbation} images",fontsize=20)
         plt.axis('square')
+        plt.xlabel("Variability",fontsize=20)
+        plt.ylabel("Confidence",fontsize=20)
         plt.tight_layout()
         save_path = path_figures/f"density_{ds_perturbation}__{model_name}_model.png"
-        fig.savefig(save_path,dpi=500)
+        fig.savefig(save_path,dpi=500,bbox_inches='tight')
         plt.close()
 
 
@@ -203,18 +210,19 @@ def datamap(pred_path,save_path,caption,model_name):
 def truncate(f, n):
     return math.floor(f * 10 ** n) / 10 ** n
 
-def generate_table_metrics(metric_file,output_file):
+def generate_table_metrics(metric_file,auc_file,output_file):
     metric_name_to_table = {
-        "inception_score":"IS +",
-        "fid":"FID -",
-        "vs_pixel":"Vendi Score (pixel values) +",
-        "vs_hog":"Vendi Score (HoG) +",
-        "vs_inception":"Vendi Score (Inception) +",
-        "rougeL":"RougeL -",
-        "semantic_similarity":"Semantic diversity -",
+        "inception_score":"IS ↑",
+        "fid":"FID ↓",
+        "vs_pixel":"Vendi Score (pixel values) ↑",
+        "vs_hog":"Vendi Score (HoG) ↑",
+        "vs_inception":"Vendi Score (Inception) ↑",
+        "rougeL":"RougeL ↓",
+        "semantic_similarity":"Semantic diversity ↓",
+        "metadata_similarity":"Metadata diversity ↓"
     }
     metrics_df = pd.read_csv(metric_file,index_col="metric_name").T
-    auc_df = pd.read_csv(PROCESSED_DATA_DIR/"morphomnist_aucs.csv",index_col="model")
+    auc_df = pd.read_csv(auc_file,index_col="model")
 
     with open(output_file, "w") as text_file:
         #Table definition, caption, and label
@@ -235,13 +243,22 @@ def generate_table_metrics(metric_file,output_file):
             for dataset_value in metrics_df[metric]:
                 text_file.write(f"&{truncate(float(dataset_value.split('_')[0]),2)}\t")
             text_file.write(r"\\"+"\n")
+            for dataset_value in metrics_df[metric]:
+                if metric == "rougeL":
+                    text_file.write(f"&$\pm${truncate(float(dataset_value.split('_')[1]),4)}\t")
+                else:
+                    text_file.write(f"&[{truncate(float(dataset_value.split('_')[1]),2)},{truncate(float(dataset_value.split('_')[2]),2)}]\t")
+            text_file.write(r"\\"+"\n")
         text_file.write("\\hline\n")
 
         #AUC
-        text_file.write("AUC +\t")
+        text_file.write("AUC ↑\t")
         for auc_dataset in auc_df["mean_auc"]:
             text_file.write(f"&{truncate(float(auc_dataset),3)}\t")
         text_file.write(r"\\"+"\n")
+        for std_dataset in auc_df["std_auc"]:
+            text_file.write(f"&$\pm${truncate(float(std_dataset),3)}\t")
+        text_file.write(r"\\"+"\n") 
         text_file.write("\\hline\n")
 
         text_file.write("\\end{tabular}\n")
@@ -255,24 +272,25 @@ def main(
     output_path: Path = FIGURES_DIR / "plot.png",
     # -----------------------------------------
 ):
-    metrics_csv_path = INTERIM_DATA_DIR / "diversity_metrics.csv"
+    metrics_csv_path = INTERIM_DATA_DIR / "diversity_metrics_morphomnist.csv"
 
     logger.info("Generating plot from data...")
-    metrics_ranking_correlation_matrix(metrics_csv_path)
+    # metrics_ranking_correlation_matrix(INTERIM_DATA_DIR/"diversity_metrics_padchest.csv",PROCESSED_DATA_DIR/"padchest_aucs.csv")
     # metrics_values_matrix(metrics_csv_path)
     # evolution_metrics(INTERIM_DATA_DIR / "thinning_diversity_metrics.csv","thinning")
     # evolution_metrics(INTERIM_DATA_DIR / "thickening_diversity_metrics.csv","thickening")
-    generate_table_metrics(metrics_csv_path,REPORTS_DIR/"morphomnist_diversity_metrics_value.tex")
+    # generate_table_metrics(metrics_csv_path,PROCESSED_DATA_DIR/"morphomnist_aucs.csv",REPORTS_DIR/"padchest_diversity_metrics_value.tex")
+    # generate_table_metrics(metrics_csv_path,PROCESSED_DATA_DIR/"padchest_aucs.csv",REPORTS_DIR/"padchest_diversity_metrics_value.tex")
 
-    # datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_20251107124546/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_model.png","Datamap of model trained on plain images","plain")
-    # datamap(INTERIM_DATA_DIR / "morphomnist_trainings/thin_20251107202007/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/thin_model.png","Datamap of model trained on thin images","thin")
-    # datamap(INTERIM_DATA_DIR / "morphomnist_trainings/thick_20251108034859/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/thick_model.png","Datamap of model trained on thick images","thick")
-    # datamap(INTERIM_DATA_DIR / "morphomnist_trainings/swelling_20251108112330/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/swelling_model.png","Datamap of model trained on swelling images","swelling")
-    # datamap(INTERIM_DATA_DIR / "morphomnist_trainings/fracture_20251108185345/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/fracture_model.png","Datamap of model trained on fracture images","fracture")
-    # datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_thin_20251109022338/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_thin_model.png","Datamap of model trained on plain and thin images","plain_thin")
-    # datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_thick_20251109150701/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_thick_model.png","Datamap of model trained on plain and thick images","plain_thick")
-    # datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_swelling_20251110034309/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_swelling_model.png","Datamap of model trained on plain and swelling images","plain_swelling")
-    # datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_fracture_20251110163053/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_fracture_model.png","Datamap of model trained on plain and fracture images","plain_fracture")
+    datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_20260218125322/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_model.png","Datamap of model trained on plain images","plain")
+    datamap(INTERIM_DATA_DIR / "morphomnist_trainings/thin_20260218141219/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/thin_model.png","Datamap of model trained on thin images","thin")
+    datamap(INTERIM_DATA_DIR / "morphomnist_trainings/thick_20260218152922/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/thick_model.png","Datamap of model trained on thick images","thick")
+    datamap(INTERIM_DATA_DIR / "morphomnist_trainings/swelling_20260218162205/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/swelling_model.png","Datamap of model trained on swelling images","swelling")
+    datamap(INTERIM_DATA_DIR / "morphomnist_trainings/fracture_20260218175236/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/fracture_model.png","Datamap of model trained on fracture images","fracture")
+    datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_thin_20260218191852/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_thin_model.png","Datamap of model trained on plain and thin images","plain_thin")
+    datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_thick_20260218205323/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_thick_model.png","Datamap of model trained on plain and thick images","plain_thick")
+    datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_swelling_20260218221853/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_swelling_model.png","Datamap of model trained on plain and swelling images","plain_swelling")
+    datamap(INTERIM_DATA_DIR / "morphomnist_trainings/plain_fracture_20260219002322/datamaps_values_fold0.csv",FIGURES_DIR/"datamaps/plain_fracture_model.png","Datamap of model trained on plain and fracture images","plain_fracture")
 
     logger.success("Plot generation complete.")
     # -----------------------------------------

@@ -322,7 +322,7 @@ def get_confidence_interval(values,alpha=5.0):
     upper = np.percentile(values, upper_p)
     return lower,upper
 
-def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=2):
+def evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=10):
     #Create csv file with header
     with open(res_file_path,"w") as metrics_csvfile:
         metrics_csvfile.write(f"metric_name,{','.join([ds.dataset_name for ds in lst_train_datasets])}")
@@ -455,29 +455,11 @@ def main(dataset:str):
     if dataset == "morpho":
         ref_dataset = get_test_dataset()
 
-        # # ---- Thinning evolution ----
-        # logger.info("Computing diversity metrics for multiple thinning parameter...")
-        # lst_train_datasets = get_thinning_datasets()
-        # res_file_path = INTERIM_DATA_DIR / "thinning_diversity_metrics_local.csv"
-        # evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
-
-        # logger.success("Done.")
-        # # -----------------------------------------
-        
-        # # ---- Thickening evolution ----
-        # logger.info("Computing diversity metrics for multiple thickening parameter...")
-        # lst_train_datasets = get_thickening_datasets()
-        # res_file_path = INTERIM_DATA_DIR / "thickening_diversity_metrics_local.csv"
-        # evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
-        # logger.success("Done.")
-        # # -----------------------------------------
-
-
         # ---- Multiple scenarios ----
         logger.info("Computing diversity metrics for multiple morpho scenarios...")
         lst_train_datasets = get_perturb_dataset()
         res_file_path = INTERIM_DATA_DIR / "diversity_metrics_metadata.csv"
-        evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path)
+        evaluate_datasets(lst_train_datasets,ref_dataset,res_file_path,nb_bootstrap=10)
         logger.success("Done.")
         # -----------------------------------------
 
