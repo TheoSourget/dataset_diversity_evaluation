@@ -74,7 +74,6 @@ This repo is still a work in progress.
 Get the repo and create the environment
 ```sh
 git clone https://github.com/TheoSourget/dataset_diversity_evaluation.git
-python src/metrics/compute_metrics.py cxr
 make create_environment
 source activate dataset_diversity_evaluation
 #Install the appropriate version of torch depending on your cuda version
