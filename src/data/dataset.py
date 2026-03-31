@@ -129,23 +129,7 @@ def process_padchest():
     padchest_process_images()
     logger.info("Train-Test split of PadChest...")
     train_test_split_padchest()
-
-
-def process_CXR14():
-    #Load CXR14 and NEATX annotations
-    cxr14_annotations = pd.read_csv(f"{RAW_DATA_DIR}/CXR14/Data_Entry_2017.csv")
-    neatx_annotations = pd.read_csv(f"{RAW_DATA_DIR}/CXR14/NIH-CX14_TubeAnnotations_NonExperts_aggregated.csv")
-
-    processed_annotation = pd.merge(cxr14_annotations,neatx_annotations,on=["Image Index"],how="left")
-    processed_annotation["Drain"] = processed_annotation["Drain"].fillna(-1)
-    processed_annotation["Pneumothorax"] = processed_annotation["Finding Labels"].apply(lambda x:"Pneumothorax" in x)
-    processed_annotation.to_csv(f"{PROCESSED_DATA_DIR}/CXR14/processed_labels.csv")
-    for img_id in neatx_annotations["Image Index"]:
-        img = cv2.imread(f"{RAW_DATA_DIR}/CXR14/imgs/{img_id}")
-        resized_img = cv2.resize(img, (512, 512))
-        normalized_image = cv2.normalize(resized_img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-        cv2.imwrite(f"{PROCESSED_DATA_DIR}/CXR14/imgs/{img_id}", normalized_image)
-
+    
 @app.command()
 def main():
     logger.info("Processing train MorphoMNIST dataset...")
@@ -159,11 +143,6 @@ def main():
     logger.info("Processing PadChest dataset...")
     process_padchest()
     logger.success("Processing PadChest complete.")
-
-    logger.info("Processing CXR14 dataset...")
-    process_CXR14()
-    logger.success("Processing CXR14 complete.")
-
 
 if __name__ == "__main__":
     app()
