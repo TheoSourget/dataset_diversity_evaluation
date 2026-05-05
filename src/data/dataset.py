@@ -129,7 +129,28 @@ def process_padchest():
     padchest_process_images()
     logger.info("Train-Test split of PadChest...")
     train_test_split_padchest()
+
+def process_CXR14():
     
+    #Load CXR14 
+    cxr14_annotations = pd.read_csv(f"{RAW_DATA_DIR}/CXR14/Data_Entry_2017.csv")
+    
+    #Keep test images
+    with open(f'{RAW_DATA_DIR}/CXR14/test_list.txt', 'r') as file:
+        test_imgs_ids = [l.removesuffix("\n") for l in file.readlines()]
+    cxr14_annotations = cxr14_annotations[cxr14_annotations["Image Index"].isin(test_imgs_ids)]
+    
+    #Process label for pneumothorax and save the csv
+    cxr14_annotations["Pneumothorax"] = cxr14_annotations["Finding Labels"].apply(lambda x:"Pneumothorax" in x)
+    cxr14_annotations.to_csv(f"{PROCESSED_DATA_DIR}/CXR14/processed_labels.csv")
+
+    #Load and process the images with resize and normalisation
+    for img_id in cxr14_annotations["Image Index"]:
+        img = cv2.imread(f"{RAW_DATA_DIR}/CXR14/imgs/{img_id}")
+        resized_img = cv2.resize(img, (512, 512))
+        normalized_image = cv2.normalize(resized_img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        cv2.imwrite(f"{PROCESSED_DATA_DIR}/CXR14/imgs/{img_id}", normalized_image)
+
 @app.command()
 def main():
     logger.info("Processing train MorphoMNIST dataset...")
