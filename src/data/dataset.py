@@ -165,5 +165,9 @@ def main():
     process_padchest()
     logger.success("Processing PadChest complete.")
 
+    logger.info("Processing CXR14 dataset...")
+    process_CXR14()
+    logger.success("Processing PadChest complete.")
+
 if __name__ == "__main__":
     app()
