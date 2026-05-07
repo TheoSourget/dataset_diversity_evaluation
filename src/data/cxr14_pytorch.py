@@ -9,9 +9,9 @@ from src.config import PROCESSED_DATA_DIR
 
 class CXR14Dataset(Dataset):
     def __init__(self):
-        self.labels_csv = pd.read_csv(f'{PROCESSED_DATA_DIR}/cxr14/processed_labels.csv',index_col=0)        
+        self.labels_csv = pd.read_csv(f'{PROCESSED_DATA_DIR}/CXR14/processed_labels.csv',index_col=0)        
         self.labels_csv = self.labels_csv.reset_index(drop=True)
-        self.labels_csv["img_paths"] = [f"{PROCESSED_DATA_DIR}/cxr14/imgs/{img_id}" for img_id in self.labels_csv["Image Index"]]
+        self.labels_csv["img_paths"] = [f"{PROCESSED_DATA_DIR}/CXR14/imgs/{img_id}" for img_id in self.labels_csv["Image Index"]]
 
     def __len__(self):
         return len(self.labels_csv)
@@ -22,10 +22,7 @@ class CXR14Dataset(Dataset):
         image = read_image(img_path,ImageReadMode.RGB)
         image = image / image.max()
         label = img_row["Pneumothorax"]
-        if self.as_tensor:
-            return torch.Tensor(image), None, torch.tensor(label), img_row["Image Index"], None, None
-        else:
-            return image.numpy(), None, label, img_row["Image Index"], None, None
+        return torch.Tensor(image), None, torch.tensor(label), img_row["Image Index"], None, None
 
     def get_image_id(self,idx):
         img_path = self.labels_csv.iloc[idx]["img_paths"]
