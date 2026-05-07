@@ -29,10 +29,9 @@ def compute_preds(model,dataloader):
     lst_labels = []
     lst_probas = []
     lst_img_ids = []
-    lst_dataset_names = []
     with torch.no_grad():
         for i, data in enumerate(dataloader, 0):
-            inputs, texts, labels, img_ids, metadata, dataset_names = data
+            inputs, labels, img_ids = data
             inputs,labels = inputs.float().to(DEVICE), torch.Tensor(labels).float().to(DEVICE)
             
             # forward
@@ -41,9 +40,8 @@ def compute_preds(model,dataloader):
             lst_labels.extend(labels.cpu().detach().numpy())
             lst_probas.extend(output_sigmoid.cpu().detach().numpy())
             lst_img_ids.extend(img_ids)
-            lst_dataset_names.extend(dataset_names)
 
-    return lst_img_ids,lst_dataset_names,lst_labels,lst_probas
+    return lst_img_ids,lst_labels,lst_probas
 
 @app.command()
 def main(
@@ -74,13 +72,12 @@ def main(
             checkpoint = torch.load(checkpoint_path,map_location=DEVICE)
             model.load_state_dict(checkpoint['model'])
 
-            lst_img_ids,lst_dataset_names,lst_labels,lst_probas = compute_preds(model,test_dataloader)
+            lst_img_ids,lst_labels,lst_probas = compute_preds(model,test_dataloader)
             preds_csv = {}
             for j in range(len(lst_img_ids)):
-                sample_id = f"{lst_img_ids[j]}_{lst_dataset_names[j]}"
+                sample_id = f"{lst_img_ids[j]}"
                 preds_csv[sample_id] = {
                     "img_id":lst_img_ids[j],
-                    "dataset_name":lst_dataset_names[j],
                     "label":lst_labels[j],
                     "proba_label":lst_probas[j]
                 }

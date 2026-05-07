@@ -22,7 +22,7 @@ class CXR14Dataset(Dataset):
         image = read_image(img_path,ImageReadMode.RGB)
         image = image / image.max()
         label = img_row["Pneumothorax"]
-        return torch.Tensor(image), None, torch.tensor(label), img_row["Image Index"], None, None
+        return torch.Tensor(image), torch.tensor(label), img_row["Image Index"]
 
     def get_image_id(self,idx):
         img_path = self.labels_csv.iloc[idx]["img_paths"]
